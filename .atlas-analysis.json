@@ -1,0 +1,70 @@
+{
+  "projectType": "sdk-library",
+  "projectName": "AHOCON",
+  "projectDescription": "A TypeScript HOCON parser with extended syntax support for configuration files",
+  "theme": "mint",
+  "primaryColor": "#000000",
+  "lightColor": "#666666",
+  "darkColor": "#ffffff",
+  "navigation": {
+    "groups": [
+      {
+        "group": "Get Started",
+        "pages": [
+          "introduction",
+          "installation",
+          "quickstart"
+        ]
+      },
+      {
+        "group": "Core Concepts",
+        "pages": [
+          "concepts/grammar",
+          "concepts/syntax",
+          "concepts/data-types"
+        ]
+      },
+      {
+        "group": "API Reference",
+        "pages": [
+          "api/parse",
+          "api/configuration",
+          "api/types"
+        ]
+      },
+      {
+        "group": "Advanced",
+        "pages": [
+          "advanced/custom-functions",
+          "advanced/preparse",
+          "advanced/built-in-functions"
+        ]
+      },
+      {
+        "group": "Examples",
+        "pages": [
+          "examples/basic-config",
+          "examples/typescript-usage",
+          "examples/validation"
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "HOCON-compliant parser with extended syntax",
+    "TypeScript support with type casting",
+    "Custom function system for extensibility",
+    "Multiple quote styles and unquoted strings",
+    "Flexible assignment operators",
+    "Comment support (single-line and multi-line)",
+    "Nested object paths and array syntax"
+  ],
+  "publicApiSurface": [
+    "parse<T>(content: string, config?: ParseConfig): T",
+    "parse (extended version from ahocon/extended)",
+    "CustomFunction type",
+    "ParseConfig interface",
+    "Node types (root, object, array, string, function, raw)",
+    "Built-in functions: math.*, convert.*, ref()"
+  ]
+}
