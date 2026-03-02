@@ -1,0 +1,72 @@
+---
+title: Introduction
+description: A TypeScript HOCON parser library with support for custom functions and type safety
+---
+
+# Welcome to AHOCON
+
+AHOCON (short for Another HOCON) is a TypeScript implementation of the [HOCON grammar](https://github.com/lightbend/config/blob/master/HOCON.md) that provides a simple, human-friendly configuration format with powerful features.
+
+## What is HOCON?
+
+HOCON (Human-Optimized Config Object Notation) is a superset of JSON that provides a more flexible and readable way to write configuration files. AHOCON parses HOCON syntax and converts it to standard JSON objects.
+
+## Key Features
+
+<CardGroup cols={2}>
+  <Card title="Type Safe" icon="shield-check">
+    Built in TypeScript with full type inference support for your configuration schemas
+  </Card>
+  
+  <Card title="Universal Runtime" icon="globe">
+    Works in Node.js, browsers, and other JavaScript runtimes
+  </Card>
+  
+  <Card title="Lightweight" icon="feather">
+    Minimal bundle size with zero dependencies for the core parser
+  </Card>
+  
+  <Card title="Extensible" icon="puzzle-piece">
+    Support for custom functions to extend the parser capabilities
+  </Card>
+</CardGroup>
+
+## Quick Example
+
+Transform HOCON configuration into typed JavaScript objects:
+
+```typescript
+import { parse } from 'ahocon';
+
+interface Config {
+  example: boolean;
+}
+
+const config = parse<Config>('example = true /* comment */');
+
+console.log(config); // { "example": true }
+```
+
+## Get Started
+
+<CardGroup cols={2}>
+  <Card title="Installation" icon="download" href="/installation">
+    Install AHOCON with npm, yarn, or pnpm
+  </Card>
+  
+  <Card title="Quick Start" icon="rocket" href="/quickstart">
+    Parse your first HOCON configuration in minutes
+  </Card>
+</CardGroup>
+
+## Use Cases
+
+- Application configuration files
+- Build tool configurations
+- Environment-specific settings
+- Complex nested configuration structures
+- Any scenario where JSON feels too rigid
+
+<Note>
+  AHOCON is a parser, not a schema validator. For runtime validation, consider using [zod](https://www.npmjs.com/package/zod) or similar libraries.
+</Note>

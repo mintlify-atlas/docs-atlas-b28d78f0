@@ -1,0 +1,452 @@
+---
+title: Built-in Functions
+description: Explore AHOCON's built-in function modules including math operations, unit conversion, and value references.
+---
+
+## Overview
+
+AHOCON provides several built-in function modules in the `ahocon/funcs/` directory. These functions serve as both practical utilities and examples for writing your own custom functions.
+
+<Note>
+  Built-in functions are **not** included by default. You must import and provide them explicitly when parsing.
+</Note>
+
+## Installation
+
+Built-in functions are available when you install AHOCON:
+
+```bash
+npm install ahocon
+```
+
+Import them from `ahocon/funcs/*`:
+
+```javascript
+import { parse } from 'ahocon/extended';
+import * as math from 'ahocon/funcs/math';
+import { memorysize } from 'ahocon/funcs/convert';
+import { ref } from 'ahocon/funcs/ref';
+```
+
+## Math Functions
+
+The `math` module provides basic arithmetic operations.
+
+### Importing
+
+```javascript
+import { parse } from 'ahocon/extended';
+import * as math from 'ahocon/funcs/math';
+
+parse(configString, {
+  functions: { math },
+});
+```
+
+Or import individual functions:
+
+```javascript
+import { add, subtract, multiply, divide } from 'ahocon/funcs/math';
+
+parse(configString, {
+  functions: { add, subtract, multiply, divide },
+});
+```
+
+### math.add()
+
+Adds multiple numbers together.
+
+<Accordion title="Implementation">
+  ```typescript src/funcs/math.ts:3-16
+  const add: AHOCON.CustomFunction = ({ args, node }) => {
+    let acc = 0;
+
+    args.forEach((item) => {
+      if (typeof item !== 'number')
+        throw Error(
+          `${node.name.value} can only work with numbers, got ${typeof item} (value = ${item})`
+        );
+
+      acc += item;
+    });
+
+    node.evaluated = acc;
+  };
+  ```
+</Accordion>
+
+**Usage:**
+
+```hocon
+total = $math.add(1, 2, 3)     # Result: 6
+sum = $add(10, 20, 30, 40)     # Result: 100 (without namespace)
+```
+
+**Parameters:**
+- `...numbers` - Any number of numeric arguments
+
+**Returns:** Sum of all arguments
+
+### math.subtract()
+
+Subtracts numbers sequentially (first - second - third - ...).
+
+<Accordion title="Implementation">
+  ```typescript src/funcs/math.ts:18-32
+  const subtract: AHOCON.CustomFunction = ({ args, node }) => {
+    let acc = 0;
+
+    args.forEach((item, index) => {
+      if (typeof item !== 'number')
+        throw Error(
+          `${node.name.value} can only work with numbers, got ${typeof item} (value = ${item})`
+        );
+
+      if (index === 0) acc = item;
+      else acc -= item;
+    });
+
+    node.evaluated = acc;
+  };
+  ```
+</Accordion>
+
+**Usage:**
+
+```hocon
+diff = $math.subtract(100, 30, 10)  # Result: 60 (100 - 30 - 10)
+```
+
+**Parameters:**
+- `...numbers` - Any number of numeric arguments
+
+**Returns:** Sequential difference starting from the first argument
+
+### math.multiply()
+
+Multiplies numbers together.
+
+<Accordion title="Implementation">
+  ```typescript src/funcs/math.ts:50-64
+  const multiply: AHOCON.CustomFunction = ({ args, node }) => {
+    let acc = 0;
+
+    args.forEach((item, index) => {
+      if (typeof item !== 'number')
+        throw Error(
+          `${node.name.value} can only work with numbers, got ${typeof item} (value = ${item})`
+        );
+
+      if (index === 0) acc = item;
+      else acc *= item;
+    });
+
+    node.evaluated = acc;
+  };
+  ```
+</Accordion>
+
+**Usage:**
+
+```hocon
+product = $math.multiply(2, 3, 4)  # Result: 24
+```
+
+**Parameters:**
+- `...numbers` - Any number of numeric arguments
+
+**Returns:** Product of all arguments
+
+### math.divide()
+
+Divides numbers sequentially (first / second / third / ...).
+
+<Accordion title="Implementation">
+  ```typescript src/funcs/math.ts:34-48
+  const divide: AHOCON.CustomFunction = ({ args, node }) => {
+    let acc = 0;
+
+    args.forEach((item, index) => {
+      if (typeof item !== 'number')
+        throw Error(
+          `${node.name.value} can only work with numbers, got ${typeof item} (value = ${item})`
+        );
+
+      if (index === 0) acc = item;
+      else acc /= item;
+    });
+
+    node.evaluated = acc;
+  };
+  ```
+</Accordion>
+
+**Usage:**
+
+```hocon
+quotient = $math.divide(100, 2, 5)  # Result: 10 (100 / 2 / 5)
+```
+
+**Parameters:**
+- `...numbers` - Any number of numeric arguments
+
+**Returns:** Sequential division starting from the first argument
+
+### Complete Example
+
+```javascript
+import { parse } from 'ahocon/extended';
+import * as math from 'ahocon/funcs/math';
+
+const config = `
+  calculations {
+    sum = $math.add(10, 20, 30)           # 60
+    difference = $math.subtract(100, 25)  # 75
+    product = $math.multiply(3, 4, 5)     # 60
+    quotient = $math.divide(100, 4)       # 25
+    
+    # Complex expression
+    result = $math.add(
+      $math.multiply(2, 3),
+      $math.subtract(10, 4)
+    )  # 6 + 6 = 12
+  }
+`;
+
+const result = parse(config, {
+  functions: { math },
+});
+
+console.log(result);
+// {
+//   calculations: {
+//     sum: 60,
+//     difference: 75,
+//     product: 60,
+//     quotient: 25,
+//     result: 12
+//   }
+// }
+```
+
+## Conversion Functions
+
+The `convert` module provides unit conversion utilities.
+
+### memorysize()
+
+Converts between memory units (bytes, kilobytes, megabytes, etc.).
+
+<Accordion title="Implementation">
+  ```typescript src/funcs/convert.ts:27-45
+  const memorysize: AHOCON.CustomFunction = ({ args, node }) => {
+    if (args.length !== 2) 
+      throw Error(`${node.name.value} needs exactly 2 arguments (from and to)`);
+    
+    if (typeof args[0] !== 'string' || typeof args[1] !== 'string')
+      throw Error(`${node.name.value} needs the arguments to be strings`);
+
+    const value1 = parseFloat(args[0]);
+    const unit1 = args[0].match(/[a-z]+/)?.[0]?.toLowerCase();
+    const unit2 = args[1].match(/[a-z]+/)?.[0]?.toLowerCase();
+
+    if (!unit1 || !unit2)
+      throw Error(
+        `${node.name.value} arguments need a unit to convert from and a unit to convert to`
+      );
+
+    if (!memoryTable[unit1]) throw Error(`invalid unit ${unit1} at ${node.name.value}`);
+    if (!memoryTable[unit2]) throw Error(`invalid unit ${unit2} at ${node.name.value}`);
+
+    node.evaluated = `${(memoryTable[unit1] * value1) / memoryTable[unit2]}${unit2}`;
+  };
+  ```
+</Accordion>
+
+**Supported Units:**
+
+- Decimal: `bit`, `byte` (`b`), `kilobyte` (`kb`), `megabyte` (`mb`), `gigabyte` (`gb`), `terabyte` (`tb`)
+- Binary: `kibibyte` (`kib`), `mebibyte` (`mib`), `gibibyte` (`gib`), `tebibyte` (`tib`)
+
+**Usage:**
+
+```javascript
+import { parse } from 'ahocon/extended';
+import { memorysize } from 'ahocon/funcs/convert';
+
+const config = `
+  memory {
+    cache = $memorysize("512mb", "gb")      # "0.512gb"
+    disk = $memorysize("2gb", "mb")         # "2000mb"
+    buffer = $memorysize("1024kib", "mib")  # "1mib"
+  }
+`;
+
+const result = parse(config, {
+  functions: { memorysize },
+});
+```
+
+**Parameters:**
+- `from` (string) - Value with unit to convert from (e.g., "512mb")
+- `to` (string) - Unit to convert to (e.g., "gb")
+
+**Returns:** Converted value as a string with the target unit
+
+## Reference Function
+
+The `ref` function allows you to reference other values in the configuration.
+
+### ref()
+
+Returns the value at a specified path in the configuration.
+
+<Accordion title="Implementation">
+  ```typescript src/funcs/ref.ts:3-36
+  const ref: AHOCON.CustomFunction = ({ args, node, root, parseNode }) => {
+    if (args.length !== 1) throw Error('ref failed, too many arguments');
+
+    let partials = (args[0] as string).split('.');
+    let reference: AHOCON.Node | null | undefined = root as AHOCON.Node;
+
+    // relative path (starts with .)
+    if (partials[0] === '') {
+      partials.shift();
+      reference = node.parent as typeof reference;
+    }
+
+    partials.forEach((partial) => {
+      if (!reference) return;
+
+      if (reference.type === 'root') reference = reference.entry;
+
+      if (reference.type === 'object')
+        reference = reference.props.find((item) => item.key.value === partial)?.value;
+      else if (reference.type === 'array')
+        reference = reference.values[partial as unknown as number];
+      else if (reference.type === 'function')
+        reference = reference.args[partial as unknown as number];
+    });
+
+    if (reference.type === 'string' || reference.type === 'raw') 
+      node.evaluated = reference.value;
+    else if (reference.type === 'array' || reference.type === 'object' || reference.type === 'function')
+      node.evaluated = parseNode(reference);
+    else if (reference.type === 'root') 
+      node.evaluated = parseNode(reference.entry);
+  };
+  ```
+</Accordion>
+
+**Usage:**
+
+```javascript
+import { parse } from 'ahocon/extended';
+import { ref } from 'ahocon/funcs/ref';
+
+const config = `
+  database {
+    host = "localhost"
+    port = 5432
+  }
+  
+  # Reference other values
+  connection = $ref(database.host)      # "localhost"
+  dbPort = $ref(database.port)          # 5432
+  
+  # Relative references (starting with .)
+  app {
+    name = "MyApp"
+    title = $ref(.name)                 # "MyApp" (relative to app)
+  }
+`;
+
+const result = parse(config, {
+  functions: { ref },
+});
+
+console.log(result.connection);  // "localhost"
+console.log(result.app.title);   // "MyApp"
+```
+
+**Parameters:**
+- `path` (string) - Dot-separated path to the value
+  - Absolute: `database.host`
+  - Relative: `.name` (starts with `.`)
+  - Array index: `list.0`
+
+**Returns:** The value at the specified path
+
+<Warning>
+  **Circular References** - The `ref` function does not protect against infinite loops. Avoid circular references:
+  
+  ```hocon
+  # This will crash with an infinite loop!
+  a = $ref(b)
+  b = $ref(a)
+  ```
+</Warning>
+
+## Combining Functions
+
+You can use multiple function modules together:
+
+```javascript
+import { parse } from 'ahocon/extended';
+import * as math from 'ahocon/funcs/math';
+import { memorysize } from 'ahocon/funcs/convert';
+import { ref } from 'ahocon/funcs/ref';
+
+const config = `
+  settings {
+    baseMemory = "256mb"
+    multiplier = 4
+  }
+  
+  # Combine ref and memorysize
+  totalMemory = $memorysize(
+    $ref(settings.baseMemory),
+    "gb"
+  )  # "0.256gb"
+  
+  # Combine ref and math
+  cores = $math.multiply(
+    $ref(settings.multiplier),
+    2
+  )  # 8
+`;
+
+const result = parse(config, {
+  functions: {
+    math,
+    memorysize,
+    ref,
+  },
+});
+```
+
+## Creating Your Own Functions
+
+These built-in functions serve as excellent templates for creating your own. Key patterns to follow:
+
+1. **Always validate argument types and count**
+2. **Throw descriptive errors with `node.name.value`**
+3. **Set `node.evaluated` instead of returning**
+4. **Keep operations lightweight**
+
+See [Custom Functions](/advanced/custom-functions) for detailed guidance on writing your own.
+
+## Source Code
+
+All built-in functions are open source and available on GitHub:
+
+- [math.ts](https://github.com/steve-py96/ahocon/blob/main/src/funcs/math.ts) - Arithmetic operations
+- [convert.ts](https://github.com/steve-py96/ahocon/blob/main/src/funcs/convert.ts) - Unit conversions
+- [ref.ts](https://github.com/steve-py96/ahocon/blob/main/src/funcs/ref.ts) - Value references
+
+## Next Steps
+
+- Learn how to write [Custom Functions](/advanced/custom-functions)
+- Explore [Preparse Hooks](/advanced/preparse) for AST manipulation
+- See [Configuration Options](/api/configuration) for configuration details

@@ -1,0 +1,419 @@
+---
+title: "Syntax Features"
+description: "String handling, comments, and syntax features in AHOCON"
+---
+
+AHOCON provides several syntax features that make configuration files more readable and maintainable than plain JSON.
+
+## Strings
+
+AHOCON supports multiple string formats, from simple unquoted strings to complex multiline strings with automatic dedenting.
+
+### Quote Styles
+
+Choose from three quote styles based on your content:
+
+<Tabs>
+  <Tab title="Single Quotes">
+    ```ahocon
+    a = 'Hello, world!'
+    ```
+  </Tab>
+  <Tab title="Double Quotes">
+    ```ahocon
+    a = "Hello, world!"
+    ```
+  </Tab>
+  <Tab title="Backticks">
+    ```ahocon
+    a = `Hello, world!`
+    ```
+  </Tab>
+</Tabs>
+
+All three produce:
+
+```json
+{
+  "a": "Hello, world!"
+}
+```
+
+<Info>
+  Use different quote styles to avoid escaping quotes within your strings.
+</Info>
+
+### Unquoted Strings
+
+Strings without special characters don't need quotes:
+
+<CodeGroup>
+```ahocon AHOCON
+a = on
+b = off
+c = this is nice
+```
+
+```json JSON Output
+{
+  "a": "on",
+  "b": "off",
+  "c": "this is nice"
+}
+```
+</CodeGroup>
+
+<Note>
+  Unquoted strings can contain spaces but not newlines or special characters like quotes, brackets, or braces.
+</Note>
+
+### Multiline Strings
+
+Create multiline strings by using newlines within quoted strings:
+
+<CodeGroup>
+```ahocon AHOCON
+a = "
+  This
+  is a
+    multiline string
+"
+```
+
+```json JSON Output
+{
+  "a": "\n  This\n  is a\n    multiline string\n"
+}
+```
+</CodeGroup>
+
+The raw newlines and indentation are preserved in the output.
+
+### Triple-Quoted Strings
+
+Use triple quotes to automatically trim and dedent multiline strings:
+
+<CodeGroup>
+```ahocon AHOCON
+a = """
+  This
+  is a
+    multiline string
+"""
+```
+
+```json JSON Output
+{
+  "a": "This\nis a\n  multiline string"
+}
+```
+</CodeGroup>
+
+<Info>
+  Triple quotes work with all quote types: `"""`, `'''`, and ` ``` `.
+</Info>
+
+#### How Dedenting Works
+
+1. Leading and trailing whitespace is trimmed
+2. The first non-empty line determines the base indentation
+3. That indentation is removed from all subsequent lines
+4. Additional indentation is preserved
+
+<CodeGroup>
+```ahocon Input
+message = """
+    Line one
+    Line two
+      Indented line
+"""
+```
+
+```json Output
+{
+  "message": "Line one\nLine two\n  Indented line"
+}
+```
+</CodeGroup>
+
+### Strings in Keys
+
+All string features work in object keys too:
+
+<CodeGroup>
+```ahocon AHOCON
+# Prevent path notation
+'a.b.c' = 1
+
+# Multiline key
+'''
+  Long
+  Key
+''' = value
+```
+
+```json JSON Output
+{
+  "a.b.c": 1,
+  "Long\nKey": "value"
+}
+```
+</CodeGroup>
+
+## Comments
+
+AHOCON supports multiple comment styles to annotate your configuration.
+
+### Single-Line Comments
+
+Use `#` or `//` for single-line comments:
+
+<Tabs>
+  <Tab title="Hash">
+    ```ahocon
+    # This is a comment
+    a = 1
+    ```
+  </Tab>
+  <Tab title="Double Slash">
+    ```ahocon
+    // This is a comment
+    a = 1
+    ```
+  </Tab>
+</Tabs>
+
+Both styles work identically. The comment extends to the end of the line.
+
+### Inline Comments
+
+Add comments after code on the same line:
+
+```ahocon
+a = 1  # Setting value
+b = 2  // Another value
+```
+
+<Note>
+  Everything after `#` or `//` on the same line is ignored by the parser.
+</Note>
+
+### Block Comments
+
+Use `/* */` for multi-line or inline block comments:
+
+```ahocon
+/* This is a
+   multi-line comment */
+a = 1
+
+b = /* inline comment */ 2
+```
+
+### Comment Examples
+
+Here's a practical example using all comment styles:
+
+```ahocon
+# Configuration file for production
+
+server {
+  // Connection settings
+  host = localhost
+  port = 8080  # Default port
+  
+  /*
+   * Database configuration
+   * Update these for production
+   */
+  database {
+    url = postgres://localhost/mydb
+    pool_size = /* maximum connections */ 20
+  }
+}
+```
+
+<Info>
+  Comments are completely removed during parsing and don't appear in the JSON output.
+</Info>
+
+## Whitespace Handling
+
+AHOCON is flexible with whitespace, similar to JSON.
+
+### Optional Whitespace
+
+Whitespace around operators and separators is optional:
+
+<Tabs>
+  <Tab title="Minimal">
+    ```ahocon
+    a=1
+    b={c:2}
+    ```
+  </Tab>
+  <Tab title="Generous">
+    ```ahocon
+    a     =     1
+    b  =  {  c  :  2  }
+    ```
+  </Tab>
+</Tabs>
+
+Both produce the same output:
+
+```json
+{
+  "a": 1,
+  "b": { "c": 2 }
+}
+```
+
+### Significant Whitespace
+
+Newlines are significant when used as separators:
+
+```ahocon
+# Newline separates items
+a = 1
+b = 2
+
+# Comma required on same line
+c = [1, 2, 3]
+```
+
+<Warning>
+  Unquoted strings treat spaces as part of the string value, but newlines are special characters that terminate the string.
+</Warning>
+
+## Special Characters
+
+Certain characters have special meaning in AHOCON:
+
+| Character | Meaning | Context |
+|-----------|---------|----------|
+| `:` | Assignment operator | Objects |
+| `=` | Assignment operator | Objects |
+| `:=` | Assignment operator | Objects |
+| `.` | Path separator | Keys |
+| `,` | Item separator | Objects, arrays |
+| `\n` | Item separator | Objects, arrays |
+| `{` `}` | Object delimiters | Values |
+| `[` `]` | Array delimiters | Values |
+| `"` `'` `` ` `` | String delimiters | Strings |
+| `#` `//` | Comment start | Comments |
+| `/*` `*/` | Block comment | Comments |
+
+### Escaping Special Characters
+
+Use quotes to include special characters in values:
+
+```ahocon
+# Without quotes, = is an operator
+key = value
+
+# With quotes, = is part of the string
+'key=value' = 'data'
+```
+
+Output:
+
+```json
+{
+  "key": "value",
+  "key=value": "data"
+}
+```
+
+## Case Sensitivity
+
+AHOCON is case-sensitive for both keys and values:
+
+<CodeGroup>
+```ahocon AHOCON
+Key = value1
+key = value2
+KEY = value3
+```
+
+```json JSON Output
+{
+  "Key": "value1",
+  "key": "value2",
+  "KEY": "value3"
+}
+```
+</CodeGroup>
+
+Boolean and null values are also case-sensitive:
+
+<CodeGroup>
+```ahocon AHOCON
+a = true   # boolean
+b = True   # string
+c = TRUE   # string
+```
+
+```json JSON Output
+{
+  "a": true,
+  "b": "True",
+  "c": "TRUE"
+}
+```
+</CodeGroup>
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Choose consistent quote styles">
+    Pick one quote style and use it consistently throughout your config files. Use alternative quotes only when avoiding escaping.
+  </Accordion>
+  
+  <Accordion title="Use triple quotes for long text">
+    For multiline strings, especially documentation or SQL queries, use triple quotes to automatically handle indentation.
+    
+    ```ahocon
+    query = """
+      SELECT *
+      FROM users
+      WHERE active = true
+    """
+    ```
+  </Accordion>
+  
+  <Accordion title="Comment extensively">
+    Unlike JSON, AHOCON supports comments. Use them to explain configuration choices and document expected values.
+  </Accordion>
+  
+  <Accordion title="Prefer newlines over commas">
+    When writing multi-line objects or arrays, use newlines as separators for better readability:
+    
+    ```ahocon
+    # Good
+    items = [
+      value1
+      value2
+      value3
+    ]
+    
+    # Less readable
+    items = [
+      value1,
+      value2,
+      value3
+    ]
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Grammar Reference" icon="book" href="/concepts/grammar">
+    Review the complete AHOCON grammar
+  </Card>
+  <Card title="Data Types" icon="database" href="/concepts/data-types">
+    Explore supported data types
+  </Card>
+</CardGroup>

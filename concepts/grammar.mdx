@@ -1,0 +1,392 @@
+---
+title: "Grammar Reference"
+description: "Complete AHOCON grammar specification and syntax rules"
+---
+
+AHOCON is a superset of JSON that provides a more flexible and human-friendly syntax. This page provides a complete reference of the AHOCON grammar.
+
+<Note>
+  JSON is valid AHOCON. Any valid JSON file can be parsed by AHOCON without modification.
+</Note>
+
+## Root Type
+
+The first character in your AHOCON file determines the root type of your data structure.
+
+### Object Root
+
+Unlike JSON, AHOCON doesn't require braces for top-level objects. An empty file is a valid empty object.
+
+<CodeGroup>
+```ahocon AHOCON
+
+```
+
+```json JSON Output
+{}
+```
+</CodeGroup>
+
+You can also explicitly use braces if preferred:
+
+<CodeGroup>
+```ahocon AHOCON
+{}
+```
+
+```json JSON Output
+{}
+```
+</CodeGroup>
+
+<Info>
+  The parser automatically wraps your content in braces if you don't start with `[` or `{`.
+</Info>
+
+### Array Root
+
+To create a root-level array, start your file with `[`:
+
+<CodeGroup>
+```ahocon AHOCON
+[]
+```
+
+```json JSON Output
+[]
+```
+</CodeGroup>
+
+## Assignment Operators
+
+AHOCON provides three assignment operators for flexibility. Choose whichever you prefer:
+
+<Tabs>
+  <Tab title="Colon">
+    ```ahocon
+    a: 1
+    ```
+  </Tab>
+  <Tab title="Equals">
+    ```ahocon
+    a = 1
+    ```
+  </Tab>
+  <Tab title="Colon-Equals">
+    ```ahocon
+    a := 1
+    ```
+  </Tab>
+</Tabs>
+
+All three produce the same output:
+
+```json
+{
+  "a": 1
+}
+```
+
+<Info>
+  Whitespace around operators is optional. Both `a=1` and `a = 1` are valid.
+</Info>
+
+## Keys
+
+Keys in AHOCON are more powerful than in JSON, supporting nested paths and flexible quoting.
+
+### Duplicate Keys
+
+Unlike JSON, duplicate keys are explicitly supported in AHOCON. The last value wins:
+
+<CodeGroup>
+```ahocon AHOCON
+a = 1
+a = 2
+```
+
+```json JSON Output
+{
+  "a": 2
+}
+```
+</CodeGroup>
+
+<Warning>
+  While duplicate keys are allowed, JSON validators and editors will show errors. AHOCON handles this gracefully.
+</Warning>
+
+### Path Notation
+
+Use dot notation to create nested objects automatically:
+
+<CodeGroup>
+```ahocon AHOCON
+a.b.c = 1
+```
+
+```json JSON Output
+{
+  "a": {
+    "b": {
+      "c": 1
+    }
+  }
+}
+```
+</CodeGroup>
+
+### Merging Objects
+
+Partially duplicate paths merge instead of overwriting:
+
+<CodeGroup>
+```ahocon AHOCON
+a.b.c = 1
+a.b.d = 2
+```
+
+```json JSON Output
+{
+  "a": {
+    "b": {
+      "c": 1,
+      "d": 2
+    }
+  }
+}
+```
+</CodeGroup>
+
+### Array Indices
+
+Use numeric indices in paths to create arrays:
+
+<CodeGroup>
+```ahocon AHOCON
+a.b.0 = 1
+a.b.1 = 2
+```
+
+```json JSON Output
+{
+  "a": {
+    "b": [1, 2]
+  }
+}
+```
+</CodeGroup>
+
+<Info>
+  Sparse arrays are supported. If you use non-consecutive indices, gaps will be filled with `null`.
+</Info>
+
+### Quoted Keys
+
+Use quotes to prevent path interpretation or include special characters:
+
+<CodeGroup>
+```ahocon AHOCON
+'a.b.c' = 1
+'a.b'.c = 2
+```
+
+```json JSON Output
+{
+  "a.b.c": 1,
+  "a.b": {
+    "c": 2
+  }
+}
+```
+</CodeGroup>
+
+Quoted keys can also force object properties instead of arrays:
+
+<CodeGroup>
+```ahocon AHOCON
+a.b.'0' = 1
+```
+
+```json JSON Output
+{
+  "a": {
+    "b": {
+      "0": 1
+    }
+  }
+}
+```
+</CodeGroup>
+
+## Separators
+
+AHOCON supports multiple separator styles for flexibility.
+
+### Newline Separators
+
+Use newlines instead of commas to separate items:
+
+<CodeGroup>
+```ahocon AHOCON
+a {
+  key1 = 1
+  key2 = 2
+}
+
+b = [
+  1
+  2
+]
+```
+
+```json JSON Output
+{
+  "a": {
+    "key1": 1,
+    "key2": 2
+  },
+  "b": [1, 2]
+}
+```
+</CodeGroup>
+
+### Comma Separators
+
+Commas are required for inline definitions:
+
+<CodeGroup>
+```ahocon AHOCON
+a = { key1 = 1, key2 = 2 }
+b = [1, 2]
+```
+
+```json JSON Output
+{
+  "a": {
+    "key1": 1,
+    "key2": 2
+  },
+  "b": [1, 2]
+}
+```
+</CodeGroup>
+
+### Mixed Separators
+
+You can mix newlines and commas (though it's not recommended for readability):
+
+<CodeGroup>
+```ahocon AHOCON
+a = [
+  1,2
+  3
+  4,5
+  6
+]
+```
+
+```json JSON Output
+{
+  "a": [1, 2, 3, 4, 5, 6]
+}
+```
+</CodeGroup>
+
+## Optional Assignment
+
+When assigning objects or arrays, you can omit the assignment operator:
+
+<CodeGroup>
+```ahocon AHOCON
+a {
+  key1: 1
+  key2: 2
+}
+
+b [
+  1
+  2
+]
+```
+
+```json JSON Output
+{
+  "a": {
+    "key1": 1,
+    "key2": 2
+  },
+  "b": [1, 2]
+}
+```
+</CodeGroup>
+
+<Warning>
+  Optional assignment only works for objects and arrays. Primitives always require an assignment operator.
+</Warning>
+
+### Nested Optional Assignment
+
+This works in nested structures too:
+
+<CodeGroup>
+```ahocon AHOCON
+a {
+  b {
+    c {
+      d = 1
+    }
+  }
+  e [
+    {
+      f [
+        0
+      ]
+    }
+  ]
+}
+```
+
+```json JSON Output
+{
+  "a": {
+    "b": {
+      "c": {
+        "d": 1
+      }
+    },
+    "e": [
+      {
+        "f": [0]
+      }
+    ]
+  }
+}
+```
+</CodeGroup>
+
+## Grammar Rules Summary
+
+| Feature | AHOCON | JSON |
+|---------|---------|------|
+| Root object braces | Optional | Required |
+| Root array brackets | Required | Required |
+| Assignment operators | `:`, `=`, `:=` | `:` only |
+| Duplicate keys | Allowed | Discouraged |
+| Path notation | Supported | Not supported |
+| Separator (newline) | Supported | Not supported |
+| Separator (comma) | Required inline | Always required |
+| Optional assignment | Objects/arrays | Not supported |
+| Comments | Supported | Not supported |
+| Unquoted strings | Supported | Not supported |
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Syntax Features" icon="code" href="/concepts/syntax">
+    Learn about strings, comments, and syntax details
+  </Card>
+  <Card title="Data Types" icon="database" href="/concepts/data-types">
+    Explore supported data types and primitives
+  </Card>
+</CardGroup>

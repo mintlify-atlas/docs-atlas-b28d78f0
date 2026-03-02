@@ -1,0 +1,391 @@
+---
+title: TypeScript Integration
+description: Use AHOCON with TypeScript for type-safe configuration parsing
+---
+
+AHOCON is built in TypeScript and provides full type support for parsed configurations. This guide shows how to leverage TypeScript's type system with AHOCON.
+
+## Basic Type Casting
+
+The `parse` function accepts a generic type parameter to cast the result:
+
+```typescript
+import { parse } from 'ahocon';
+
+interface AppConfig {
+  name: string;
+  version: string;
+  debug: boolean;
+}
+
+const config = parse<AppConfig>('name = MyApp\nversion = 1.0.0\ndebug = false');
+
+// TypeScript knows the shape of config
+console.log(config.name);    // Type: string
+console.log(config.version); // Type: string
+console.log(config.debug);   // Type: boolean
+```
+
+<Note>
+The generic parameter provides type information only - AHOCON doesn't validate the actual runtime values. See the [validation guide](/examples/validation) for runtime type checking.
+</Note>
+
+## Complex Type Definitions
+
+<Steps>
+  <Step title="Define Nested Interfaces">
+    Create interfaces that match your configuration structure:
+
+    ```typescript
+    interface DatabaseConfig {
+      host: string;
+      port: number;
+      credentials: {
+        username: string;
+        password: string;
+      };
+      options: {
+        maxConnections: number;
+        timeout: number;
+      };
+    }
+
+    interface ServerConfig {
+      host: string;
+      port: number;
+      ssl: boolean;
+    }
+
+    interface AppConfig {
+      app: {
+        name: string;
+        version: string;
+      };
+      server: ServerConfig;
+      database: DatabaseConfig;
+    }
+    ```
+  </Step>
+
+  <Step title="Parse with Type">
+    Use the interface as the generic parameter:
+
+    ```typescript
+    const configString = `
+      app {
+        name = MyApp
+        version = 2.0.0
+      }
+      
+      server {
+        host = 0.0.0.0
+        port = 3000
+        ssl = true
+      }
+      
+      database {
+        host = localhost
+        port = 5432
+        
+        credentials {
+          username = admin
+          password = secret
+        }
+        
+        options {
+          maxConnections = 100
+          timeout = 5000
+        }
+      }
+    `;
+
+    const config = parse<AppConfig>(configString);
+    ```
+  </Step>
+
+  <Step title="Use Type-Safe Config">
+    Access properties with full TypeScript support:
+
+    ```typescript
+    // All properties are typed
+    const dbHost: string = config.database.host;
+    const dbPort: number = config.database.port;
+    const maxConn: number = config.database.options.maxConnections;
+
+    // TypeScript catches errors at compile time
+    // config.database.invalid; // Error: Property 'invalid' does not exist
+    ```
+  </Step>
+</Steps>
+
+## Working with Arrays
+
+Define array types for collections in your configuration:
+
+```typescript
+interface Endpoint {
+  path: string;
+  method: 'GET' | 'POST' | 'PUT' | 'DELETE';
+  auth: boolean;
+}
+
+interface ApiConfig {
+  baseUrl: string;
+  timeout: number;
+  endpoints: Endpoint[];
+}
+
+const config = parse<ApiConfig>(`
+  baseUrl = https://api.example.com
+  timeout = 30000
+  
+  endpoints = [
+    { path = /users, method = GET, auth = true }
+    { path = /products, method = GET, auth = false }
+    { path = /orders, method = POST, auth = true }
+  ]
+`);
+
+// Type-safe array access
+config.endpoints.forEach((endpoint: Endpoint) => {
+  console.log(`${endpoint.method} ${endpoint.path}`);
+});
+```
+
+## Optional and Union Types
+
+Use TypeScript's optional and union types for flexible configurations:
+
+<CodeGroup>
+```typescript Optional Properties
+interface Config {
+  host: string;
+  port: number;
+  // Optional properties
+  ssl?: boolean;
+  timeout?: number;
+  maxRetries?: number;
+}
+
+const config = parse<Config>(`
+  host = localhost
+  port = 3000
+  ssl = true
+  # timeout and maxRetries are omitted
+`);
+
+// TypeScript knows these might be undefined
+if (config.ssl) {
+  console.log('SSL enabled');
+}
+
+const timeout = config.timeout ?? 30000; // Provide default
+```
+
+```typescript Union Types
+type Environment = 'development' | 'staging' | 'production';
+type LogLevel = 'debug' | 'info' | 'warn' | 'error';
+
+interface Config {
+  environment: Environment;
+  logLevel: LogLevel;
+  debug: boolean | undefined;
+}
+
+const config = parse<Config>(`
+  environment = production
+  logLevel = info
+  debug = undefined
+`);
+
+// TypeScript enforces the union types
+if (config.environment === 'production') {
+  // Production-specific logic
+}
+```
+</CodeGroup>
+
+## Type Inference from Config
+
+Extract types directly from parsed configurations:
+
+```typescript
+import { parse } from 'ahocon';
+
+const config = parse(`
+  app.name = MyApp
+  app.version = 1.0.0
+  server.port = 3000
+  server.host = localhost
+`);
+
+// Infer the type from the parsed config
+type ConfigType = typeof config;
+
+// Use the inferred type elsewhere
+function loadConfig(): ConfigType {
+  return parse(`
+    app.name = MyApp
+    app.version = 1.0.0
+    server.port = 3000
+    server.host = localhost
+  `);
+}
+
+function useConfig(cfg: ConfigType) {
+  console.log(cfg.app.name);
+}
+```
+
+## Reusable Config Types
+
+Create a centralized type definition for your application:
+
+<Tabs>
+  <Tab title="types/config.ts">
+    ```typescript
+    // Define all config types in one place
+    export interface DatabaseConfig {
+      host: string;
+      port: number;
+      database: string;
+      username: string;
+      password: string;
+    }
+
+    export interface RedisConfig {
+      host: string;
+      port: number;
+      password?: string;
+    }
+
+    export interface LoggingConfig {
+      level: 'debug' | 'info' | 'warn' | 'error';
+      format: 'json' | 'text';
+      outputs: ('console' | 'file')[];
+    }
+
+    export interface AppConfig {
+      app: {
+        name: string;
+        version: string;
+        environment: 'development' | 'staging' | 'production';
+      };
+      database: DatabaseConfig;
+      redis: RedisConfig;
+      logging: LoggingConfig;
+    }
+    ```
+  </Tab>
+
+  <Tab title="config/loader.ts">
+    ```typescript
+    import { parse } from 'ahocon';
+    import { readFileSync } from 'fs';
+    import type { AppConfig } from '../types/config';
+
+    export function loadConfig(path: string): AppConfig {
+      const configString = readFileSync(path, 'utf-8');
+      return parse<AppConfig>(configString);
+    }
+    ```
+  </Tab>
+
+  <Tab title="Usage">
+    ```typescript
+    import { loadConfig } from './config/loader';
+
+    // Load configuration with full type safety
+    const config = loadConfig('./config/production.hocon');
+
+    // TypeScript provides autocomplete and type checking
+    console.log(config.app.name);
+    console.log(config.database.host);
+    console.log(config.logging.level);
+    ```
+  </Tab>
+</Tabs>
+
+## Generic Configuration Factory
+
+Create a reusable configuration loader with generics:
+
+```typescript
+import { parse } from 'ahocon';
+import { readFileSync } from 'fs';
+
+class ConfigLoader<T extends {}> {
+  private config: T | null = null;
+
+  constructor(private configPath: string) {}
+
+  load(): T {
+    if (this.config === null) {
+      const content = readFileSync(this.configPath, 'utf-8');
+      this.config = parse<T>(content);
+    }
+    return this.config;
+  }
+
+  reload(): T {
+    this.config = null;
+    return this.load();
+  }
+
+  get(): T {
+    if (this.config === null) {
+      throw new Error('Config not loaded. Call load() first.');
+    }
+    return this.config;
+  }
+}
+
+// Usage
+interface MyConfig {
+  server: { port: number };
+  database: { host: string };
+}
+
+const loader = new ConfigLoader<MyConfig>('./config.hocon');
+const config = loader.load();
+
+console.log(config.server.port); // Type-safe access
+```
+
+<Warning>
+Remember: TypeScript types are compile-time only. Always use runtime validation with tools like Zod for user-provided or external configurations. See the [validation guide](/examples/validation).
+</Warning>
+
+## Type Safety with Parse Config
+
+The `parse` function also accepts an optional configuration object:
+
+```typescript
+import { parse } from 'ahocon';
+
+interface AppConfig {
+  name: string;
+  version: string;
+}
+
+const config = parse<AppConfig>(
+  'name = MyApp\nversion = 1.0.0',
+  {
+    preparse: (root) => {
+      // Custom preprocessing logic
+      console.log('Parsing config...');
+    }
+  }
+);
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Validation" icon="shield-check" href="/examples/validation">
+    Add runtime validation with Zod
+  </Card>
+  <Card title="Basic Config" icon="file" href="/examples/basic-config">
+    Learn AHOCON configuration syntax
+  </Card>
+</CardGroup>

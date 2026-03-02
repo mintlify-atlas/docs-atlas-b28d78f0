@@ -1,0 +1,349 @@
+---
+title: Basic Configuration Examples
+description: Learn how to write AHOCON configuration files with common patterns, nested structures, and arrays
+---
+
+AHOCON provides a simple, human-friendly syntax for configuration files. This guide shows common patterns you'll use in real-world applications.
+
+## Simple Key-Value Configuration
+
+The most basic configuration uses key-value pairs. AHOCON doesn't require quotes for simple strings or commas between entries:
+
+```hocon
+# Application configuration
+app_name = My Application
+version = 1.2.0
+environment = production
+debug = false
+```
+
+This parses to:
+
+```json
+{
+  "app_name": "My Application",
+  "version": "1.2.0",
+  "environment": "production",
+  "debug": false
+}
+```
+
+<Note>
+AHOCON automatically detects types - `false` becomes a boolean, `1.2.0` becomes a string since it contains multiple dots.
+</Note>
+
+## Nested Object Structures
+
+<Tabs>
+  <Tab title="Path Notation">
+    Use dot notation to create nested objects:
+
+    ```hocon
+    # Database configuration
+    database.host = localhost
+    database.port = 5432
+    database.name = myapp_db
+    database.credentials.username = admin
+    database.credentials.password = secret123
+    ```
+
+    Results in:
+
+    ```json
+    {
+      "database": {
+        "host": "localhost",
+        "port": 5432,
+        "name": "myapp_db",
+        "credentials": {
+          "username": "admin",
+          "password": "secret123"
+        }
+      }
+    }
+    ```
+  </Tab>
+
+  <Tab title="Block Notation">
+    Use braces for object blocks:
+
+    ```hocon
+    database {
+      host = localhost
+      port = 5432
+      name = myapp_db
+      
+      credentials {
+        username = admin
+        password = secret123
+      }
+    }
+    ```
+
+    Produces the same result as path notation.
+  </Tab>
+
+  <Tab title="Mixed Notation">
+    Combine both approaches:
+
+    ```hocon
+    database {
+      host = localhost
+      port = 5432
+    }
+    
+    # Add more to the same object
+    database.name = myapp_db
+    database.credentials.username = admin
+    database.credentials.password = secret123
+    ```
+
+    AHOCON merges duplicate keys, so this also produces the same result.
+  </Tab>
+</Tabs>
+
+## Array Configuration
+
+<Steps>
+  <Step title="Simple Arrays">
+    Define arrays with brackets:
+
+    ```hocon
+    allowed_hosts = [
+      localhost
+      127.0.0.1
+      example.com
+    ]
+    ```
+
+    <Note>
+    No commas needed when each item is on a new line!
+    </Note>
+  </Step>
+
+  <Step title="Inline Arrays">
+    Use commas for inline arrays:
+
+    ```hocon
+    ports = [8080, 8081, 8082]
+    ```
+  </Step>
+
+  <Step title="Arrays with Objects">
+    Combine arrays with nested objects:
+
+    ```hocon
+    servers = [
+      {
+        name = primary
+        host = server1.example.com
+        port = 8080
+      }
+      {
+        name = backup
+        host = server2.example.com
+        port = 8080
+      }
+    ]
+    ```
+  </Step>
+
+  <Step title="Path-Based Arrays">
+    Use numeric indices in paths:
+
+    ```hocon
+    servers.0.name = primary
+    servers.0.host = server1.example.com
+    servers.1.name = backup
+    servers.1.host = server2.example.com
+    ```
+
+    Creates the same array structure.
+  </Step>
+</Steps>
+
+## Real-World Application Config
+
+Here's a complete example combining all patterns:
+
+<CodeGroup>
+```hocon config.hocon
+# Application Configuration
+app {
+  name = MyApp
+  version = 2.1.0
+  debug = false
+}
+
+# Server settings
+server.host = 0.0.0.0
+server.port = 3000
+server.timeout = 30000
+
+# Database configuration
+database {
+  primary {
+    host = db-primary.example.com
+    port = 5432
+    database = production_db
+    max_connections = 100
+  }
+  
+  replica {
+    host = db-replica.example.com
+    port = 5432
+    database = production_db
+    max_connections = 50
+  }
+}
+
+# Feature flags
+features.new_ui = true
+features.beta_features = false
+features.experimental.ai_suggestions = false
+
+# Allowed origins for CORS
+cors.allowed_origins = [
+  https://example.com
+  https://www.example.com
+  https://app.example.com
+]
+
+# API endpoints
+api.endpoints = [
+  { path = /api/v1/users, method = GET, auth = true }
+  { path = /api/v1/products, method = GET, auth = false }
+  { path = /api/v1/orders, method = POST, auth = true }
+]
+
+# Logging configuration
+logging {
+  level = info
+  format = json
+  outputs = [console, file]
+  
+  file {
+    path = /var/log/myapp/app.log
+    max_size = 100MB
+    max_files = 10
+  }
+}
+```
+
+```json Parsed Output
+{
+  "app": {
+    "name": "MyApp",
+    "version": "2.1.0",
+    "debug": false
+  },
+  "server": {
+    "host": "0.0.0.0",
+    "port": 3000,
+    "timeout": 30000
+  },
+  "database": {
+    "primary": {
+      "host": "db-primary.example.com",
+      "port": 5432,
+      "database": "production_db",
+      "max_connections": 100
+    },
+    "replica": {
+      "host": "db-replica.example.com",
+      "port": 5432,
+      "database": "production_db",
+      "max_connections": 50
+    }
+  },
+  "features": {
+    "new_ui": true,
+    "beta_features": false,
+    "experimental": {
+      "ai_suggestions": false
+    }
+  },
+  "cors": {
+    "allowed_origins": [
+      "https://example.com",
+      "https://www.example.com",
+      "https://app.example.com"
+    ]
+  },
+  "api": {
+    "endpoints": [
+      { "path": "/api/v1/users", "method": "GET", "auth": true },
+      { "path": "/api/v1/products", "method": "GET", "auth": false },
+      { "path": "/api/v1/orders", "method": "POST", "auth": true }
+    ]
+  },
+  "logging": {
+    "level": "info",
+    "format": "json",
+    "outputs": ["console", "file"],
+    "file": {
+      "path": "/var/log/myapp/app.log",
+      "max_size": "100MB",
+      "max_files": "10"
+    }
+  }
+}
+```
+</CodeGroup>
+
+## Comments and Documentation
+
+AHOCON supports multiple comment styles:
+
+```hocon
+# Single line comment with hash
+// Single line comment with slashes
+
+/* Inline comment */ server.port = 3000
+
+/*
+ * Multi-line comment
+ * for longer explanations
+ */
+database.host = localhost
+```
+
+<Warning>
+Comments are completely removed during parsing and don't appear in the output JSON.
+</Warning>
+
+## String Variations
+
+AHOCON offers flexible string handling:
+
+```hocon
+# Unquoted strings
+title = Hello World
+
+# Single quotes
+message = 'He said "hello"'
+
+# Double quotes
+greeting = "Welcome!"
+
+# Backticks
+template = `Value: ${placeholder}`
+
+# Multiline with dedenting
+description = """
+  This is a multiline string.
+  AHOCON automatically trims and dedents it.
+  Indentation is preserved relatively.
+"""
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="TypeScript Usage" icon="code" href="/examples/typescript-usage">
+    Learn how to use AHOCON with TypeScript types
+  </Card>
+  <Card title="Validation" icon="shield-check" href="/examples/validation">
+    Validate configurations with Zod schemas
+  </Card>
+</CardGroup>

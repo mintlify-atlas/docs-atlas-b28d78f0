@@ -1,0 +1,468 @@
+---
+title: Configuration Validation
+description: Validate AHOCON configurations at runtime using Zod schemas for type safety
+---
+
+While TypeScript provides compile-time type checking, you need runtime validation to ensure configurations from users or external sources are correct. This guide shows how to validate AHOCON configurations using [Zod](https://zod.dev).
+
+<Warning>
+AHOCON is NOT a type or schema checker. It only parses configuration strings into JavaScript objects. Always validate user-provided or external configurations at runtime.
+</Warning>
+
+## Why Runtime Validation?
+
+TypeScript types are erased at runtime, so they can't protect against invalid configuration values:
+
+```typescript
+import { parse } from 'ahocon';
+
+interface Config {
+  port: number;
+}
+
+// TypeScript says this is Config, but runtime value is wrong
+const config = parse<Config>('port = not-a-number');
+
+// Runtime: { port: "not-a-number" }
+// TypeScript: { port: number }
+// Your app crashes when it tries to use config.port as a number!
+```
+
+Runtime validation catches these issues before they cause problems.
+
+## Basic Validation with Zod
+
+<Steps>
+  <Step title="Install Zod">
+    Add Zod to your project:
+
+    ```bash
+    npm install zod
+    ```
+  </Step>
+
+  <Step title="Define Schema">
+    Create a Zod schema matching your configuration structure:
+
+    ```typescript
+    import { z } from 'zod';
+
+    const configSchema = z.object({
+      port: z.number().min(1).max(65535),
+      host: z.string(),
+      debug: z.boolean(),
+    }).strict(); // Don't allow extra keys
+    ```
+  </Step>
+
+  <Step title="Parse and Validate">
+    Use Zod to validate the parsed configuration:
+
+    ```typescript
+    import { parse } from 'ahocon';
+    import { z } from 'zod';
+
+    const configSchema = z.object({
+      port: z.number().min(1).max(65535),
+      host: z.string(),
+      debug: z.boolean(),
+    }).strict();
+
+    // Parse AHOCON config
+    const rawConfig = parse('port = 3000\nhost = localhost\ndebug = true');
+
+    // Validate with Zod
+    const config = configSchema.parse(rawConfig);
+
+    // Now config is guaranteed to be valid!
+    console.log(config.port); // Type: number, Value: 3000
+    ```
+  </Step>
+
+  <Step title="Handle Validation Errors">
+    Catch and handle validation errors:
+
+    ```typescript
+    try {
+      const rawConfig = parse('port = 99999\nhost = localhost');
+      const config = configSchema.parse(rawConfig);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        console.error('Invalid configuration:');
+        error.errors.forEach((err) => {
+          console.error(`- ${err.path.join('.')}: ${err.message}`);
+        });
+      }
+    }
+    ```
+  </Step>
+</Steps>
+
+## Complete Example
+
+Here's the validation example from the AHOCON README:
+
+<CodeGroup>
+```typescript Validation Example
+import { parse } from 'ahocon';
+import { z } from 'zod';
+
+const schema = z
+  .object({
+    example: z.boolean(),
+  })
+  .strict(); // Don't allow other keys
+
+// Type from schema
+type Config = z.infer<typeof schema>;
+
+// Valid config - parses successfully
+const myConfig = parse<Config>('example = true');
+schema.parse(myConfig); // ✓ All good
+
+// Invalid config - wrong type
+const evilUserConfig = parse<Config>('example = 123');
+
+try {
+  schema.parse(evilUserConfig); // ✗ Throws ZodError
+} catch (error) {
+  if (error instanceof z.ZodError) {
+    console.error('Validation failed:', error.errors);
+  }
+}
+```
+
+```typescript Output
+// Valid config
+{ example: true }
+
+// Invalid config throws:
+ZodError: [
+  {
+    "code": "invalid_type",
+    "expected": "boolean",
+    "received": "number",
+    "path": ["example"],
+    "message": "Expected boolean, received number"
+  }
+]
+```
+</CodeGroup>
+
+<Note>
+Use `z.infer<typeof schema>` to generate TypeScript types from your Zod schema. This ensures your TypeScript types and runtime validation always match!
+</Note>
+
+## Complex Schema Validation
+
+Validate nested objects, arrays, and complex structures:
+
+```typescript
+import { parse } from 'ahocon';
+import { z } from 'zod';
+
+const databaseSchema = z.object({
+  host: z.string().min(1),
+  port: z.number().int().positive(),
+  database: z.string(),
+  credentials: z.object({
+    username: z.string().min(1),
+    password: z.string().min(8),
+  }),
+  options: z.object({
+    maxConnections: z.number().int().positive().max(1000),
+    timeout: z.number().int().positive(),
+    ssl: z.boolean().default(false),
+  }),
+});
+
+const appConfigSchema = z.object({
+  app: z.object({
+    name: z.string().min(1),
+    version: z.string().regex(/^\d+\.\d+\.\d+$/),
+    environment: z.enum(['development', 'staging', 'production']),
+  }),
+  database: databaseSchema,
+  logging: z.object({
+    level: z.enum(['debug', 'info', 'warn', 'error']),
+    format: z.enum(['json', 'text']),
+  }),
+}).strict();
+
+type AppConfig = z.infer<typeof appConfigSchema>;
+
+const configString = `
+  app {
+    name = MyApp
+    version = 1.2.3
+    environment = production
+  }
+  
+  database {
+    host = localhost
+    port = 5432
+    database = myapp_db
+    
+    credentials {
+      username = admin
+      password = securepass123
+    }
+    
+    options {
+      maxConnections = 100
+      timeout = 5000
+      ssl = true
+    }
+  }
+  
+  logging {
+    level = info
+    format = json
+  }
+`;
+
+try {
+  const rawConfig = parse(configString);
+  const config: AppConfig = appConfigSchema.parse(rawConfig);
+  console.log('Configuration valid!', config);
+} catch (error) {
+  if (error instanceof z.ZodError) {
+    console.error('Invalid configuration:');
+    error.errors.forEach((err) => {
+      console.error(`- ${err.path.join('.')}: ${err.message}`);
+    });
+    process.exit(1);
+  }
+}
+```
+
+## Array Validation
+
+Validate arrays of objects with specific schemas:
+
+```typescript
+import { parse } from 'ahocon';
+import { z } from 'zod';
+
+const endpointSchema = z.object({
+  path: z.string().startsWith('/'),
+  method: z.enum(['GET', 'POST', 'PUT', 'DELETE', 'PATCH']),
+  auth: z.boolean(),
+  rateLimit: z.number().int().positive().optional(),
+});
+
+const apiConfigSchema = z.object({
+  baseUrl: z.string().url(),
+  timeout: z.number().int().positive(),
+  endpoints: z.array(endpointSchema).min(1),
+}).strict();
+
+type ApiConfig = z.infer<typeof apiConfigSchema>;
+
+const configString = `
+  baseUrl = https://api.example.com
+  timeout = 30000
+  
+  endpoints = [
+    { path = /users, method = GET, auth = true, rateLimit = 100 }
+    { path = /products, method = GET, auth = false }
+    { path = /orders, method = POST, auth = true, rateLimit = 50 }
+  ]
+`;
+
+const rawConfig = parse(configString);
+const config: ApiConfig = apiConfigSchema.parse(rawConfig);
+
+// Type-safe and runtime-validated!
+config.endpoints.forEach((endpoint) => {
+  console.log(`${endpoint.method} ${endpoint.path}`);
+});
+```
+
+## Safe Parsing
+
+Use `safeParse` for non-throwing validation:
+
+```typescript
+import { parse } from 'ahocon';
+import { z } from 'zod';
+
+const configSchema = z.object({
+  port: z.number().int().positive(),
+  host: z.string(),
+}).strict();
+
+const rawConfig = parse('port = 3000\nhost = localhost');
+const result = configSchema.safeParse(rawConfig);
+
+if (result.success) {
+  const config = result.data;
+  console.log('Config is valid:', config);
+} else {
+  console.error('Config is invalid:');
+  result.error.errors.forEach((err) => {
+    console.error(`- ${err.path.join('.')}: ${err.message}`);
+  });
+}
+```
+
+## Default Values and Transformations
+
+Use Zod's `.default()` and `.transform()` for flexible validation:
+
+<Tabs>
+  <Tab title="Default Values">
+    ```typescript
+    import { parse } from 'ahocon';
+    import { z } from 'zod';
+
+    const configSchema = z.object({
+      host: z.string().default('localhost'),
+      port: z.number().default(3000),
+      debug: z.boolean().default(false),
+      timeout: z.number().optional().default(30000),
+    });
+
+    // Minimal config - defaults fill in the rest
+    const rawConfig = parse('port = 8080');
+    const config = configSchema.parse(rawConfig);
+
+    console.log(config);
+    // {
+    //   host: 'localhost',    // default
+    //   port: 8080,           // provided
+    //   debug: false,         // default
+    //   timeout: 30000        // default
+    // }
+    ```
+  </Tab>
+
+  <Tab title="Transformations">
+    ```typescript
+    import { parse } from 'ahocon';
+    import { z } from 'zod';
+
+    const configSchema = z.object({
+      // Transform string to URL object
+      baseUrl: z.string().url().transform((url) => new URL(url)),
+      
+      // Transform MB string to bytes
+      maxSize: z.string()
+        .regex(/^\d+MB$/)
+        .transform((s) => parseInt(s) * 1024 * 1024),
+      
+      // Normalize environment name
+      environment: z.string()
+        .transform((s) => s.toLowerCase())
+        .pipe(z.enum(['development', 'staging', 'production'])),
+    });
+
+    const rawConfig = parse(`
+      baseUrl = https://api.example.com
+      maxSize = 100MB
+      environment = PRODUCTION
+    `);
+
+    const config = configSchema.parse(rawConfig);
+
+    console.log(config.baseUrl);      // URL object
+    console.log(config.maxSize);      // 104857600 (bytes)
+    console.log(config.environment);  // 'production'
+    ```
+  </Tab>
+</Tabs>
+
+## Reusable Validation Helper
+
+Create a helper function for consistent validation across your app:
+
+```typescript
+import { parse } from 'ahocon';
+import { z } from 'zod';
+import { readFileSync } from 'fs';
+
+export function loadAndValidateConfig<T extends z.ZodTypeAny>(
+  path: string,
+  schema: T
+): z.infer<T> {
+  try {
+    // Read config file
+    const content = readFileSync(path, 'utf-8');
+    
+    // Parse AHOCON
+    const rawConfig = parse(content);
+    
+    // Validate with Zod
+    const config = schema.parse(rawConfig);
+    
+    return config;
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      console.error('Configuration validation failed:');
+      error.errors.forEach((err) => {
+        console.error(`  ${err.path.join('.')}: ${err.message}`);
+      });
+      throw new Error('Invalid configuration');
+    }
+    throw error;
+  }
+}
+
+// Usage
+const myConfigSchema = z.object({
+  port: z.number(),
+  host: z.string(),
+}).strict();
+
+const config = loadAndValidateConfig('./config.hocon', myConfigSchema);
+```
+
+## Best Practices
+
+<Steps>
+  <Step title="Always validate external configs">
+    Never trust configurations from users, files, or external sources. Always validate at runtime.
+  </Step>
+
+  <Step title="Use .strict() for production">
+    Add `.strict()` to your schemas to reject unexpected keys and catch typos:
+
+    ```typescript
+    const schema = z.object({ ... }).strict();
+    ```
+  </Step>
+
+  <Step title="Provide helpful error messages">
+    Customize error messages for better debugging:
+
+    ```typescript
+    const schema = z.object({
+      port: z.number({
+        required_error: 'Port is required',
+        invalid_type_error: 'Port must be a number',
+      }).min(1, 'Port must be at least 1')
+        .max(65535, 'Port must be at most 65535'),
+    });
+    ```
+  </Step>
+
+  <Step title="Generate types from schemas">
+    Use `z.infer<typeof schema>` to keep TypeScript types in sync with validation:
+
+    ```typescript
+    const schema = z.object({ ... });
+    type Config = z.infer<typeof schema>;
+    ```
+  </Step>
+</Steps>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="TypeScript Usage" icon="code" href="/examples/typescript-usage">
+    Learn TypeScript integration patterns
+  </Card>
+  <Card title="Basic Config" icon="file" href="/examples/basic-config">
+    Explore configuration syntax examples
+  </Card>
+</CardGroup>

@@ -1,80 +1,156 @@
 ---
-title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+title: Quick Start
+description: Get started with AHOCON in minutes with this step-by-step guide
 ---
 
-## Get started in three steps
+# Quick Start Guide
 
-Get your documentation site running locally and make your first customization.
+This guide will walk you through parsing your first HOCON configuration with AHOCON.
 
-### Step 1: Set up your local environment
+## Basic Usage
 
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
-    
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
-    
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
+<Steps>
 
-### Step 2: Deploy your changes
+<Step title="Install AHOCON">
+  First, install the package using your preferred package manager:
+  
+  ```bash
+  npm install ahocon
+  ```
+</Step>
 
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
-    
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
+<Step title="Import the parse function">
+  Import the `parse` function from the AHOCON package:
+  
+  ```javascript
+  import { parse } from 'ahocon';
+  ```
+  
+  <Note>
+    Use `const { parse } = require('ahocon');` if you're using CommonJS.
+  </Note>
+</Step>
 
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
+<Step title="Parse your configuration">
+  Call `parse()` with your HOCON configuration string:
+  
+  ```javascript
+  const config = parse('example = true /* comment */');
+  
+  console.log(config); // { "example": true }
+  ```
+  
+  The parser returns a JavaScript object representing your configuration.
+</Step>
 
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
+</Steps>
 
-### Step 3: Go live
+## TypeScript Usage
 
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
+AHOCON is built in TypeScript and provides full type safety for your configurations.
 
-## Next steps
+<Steps>
 
-Now that you have your docs running, explore these key features:
+<Step title="Define your configuration interface">
+  Create a TypeScript interface that describes your configuration structure:
+  
+  ```typescript
+  interface MyConfig {
+    example: boolean;
+  }
+  ```
+</Step>
 
-<CardGroup cols={2}>
+<Step title="Use the type parameter">
+  Pass your interface as a type parameter to the `parse` function:
+  
+  ```typescript
+  import { parse } from 'ahocon';
+  
+  interface MyConfig {
+    example: boolean;
+  }
+  
+  const myConfig = parse<MyConfig>('example = true /* comment */');
+  
+  console.log(myConfig); // { "example": true }
+  
+  type TypeofMyConfig = typeof myConfig; // shows MyConfig
+  ```
+  
+  The returned object will have the `MyConfig` type.
+</Step>
 
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
+</Steps>
 
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
+<Tip>
+  Type parameters provide autocomplete and type checking in your IDE, making it easier to work with complex configurations.
+</Tip>
 
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
+## Runtime Validation
 
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
+AHOCON is a parser, not a schema validator. For runtime validation of user-provided configurations, use a validation library like [zod](https://www.npmjs.com/package/zod):
 
-</CardGroup>
+```typescript
+import { parse } from 'ahocon';
+import { z } from 'zod';
+
+const schema = z
+  .object({
+    example: z.boolean(),
+  })
+  .strict(); // don't allow other keys
+
+const myConfig = parse<z.infer<typeof schema>>('example = true');
+const evilUserConfig = parse<z.infer<typeof schema>>('example = 123');
+
+schema.parse(myConfig); // ✓ all good
+schema.parse(evilUserConfig); // ✗ throws ZodError
+```
 
 <Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
+  TypeScript types are erased at runtime. Always validate untrusted input with a runtime validation library.
 </Note>
+
+## Handling Empty Input
+
+If the input string is empty or contains only whitespace, `parse()` returns an empty object:
+
+```typescript
+const config = parse('');
+console.log(config); // {}
+```
+
+## Working with Complex Configurations
+
+HOCON supports nested objects, arrays, and various value types:
+
+```javascript
+const complexConfig = parse(`
+  server {
+    host = "localhost"
+    port = 8080
+    features = ["api", "admin"]
+  }
+  
+  database {
+    url = "postgresql://localhost/db"
+    poolSize = 10
+  }
+`);
+
+console.log(complexConfig.server.port); // 8080
+console.log(complexConfig.database.poolSize); // 10
+```
+
+## Next Steps
+
+You're now ready to use AHOCON in your projects! Here are some next steps:
+
+- Learn about advanced features like custom functions
+- Explore the full HOCON syntax specification
+- Check out the API reference for detailed documentation
+
+<Tip>
+  HOCON syntax is more flexible than JSON. You can omit quotes around keys, use comments, and write more readable configurations.
+</Tip>

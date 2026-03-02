@@ -1,0 +1,549 @@
+---
+title: "Data Types"
+description: "Supported data types and how they work in AHOCON"
+---
+
+AHOCON supports all JSON data types plus `undefined`, with automatic type detection based on syntax.
+
+## Primitive Types
+
+AHOCON automatically detects primitive types based on their value.
+
+### Strings
+
+Strings can be quoted or unquoted:
+
+<CodeGroup>
+```ahocon AHOCON
+a = string
+b = "string"
+c = 'string'
+d = `string`
+```
+
+```json JSON Output
+{
+  "a": "string",
+  "b": "string",
+  "c": "string",
+  "d": "string"
+}
+```
+</CodeGroup>
+
+<Info>
+  See the [Syntax Features](/concepts/syntax#strings) page for complete string documentation including multiline and triple-quoted strings.
+</Info>
+
+### Numbers
+
+AHOCON supports integers and floating-point numbers:
+
+<CodeGroup>
+```ahocon AHOCON
+integer = 123
+negative = -456
+floating = 1.23
+exponent = 1e5
+negative_float = -3.14
+```
+
+```json JSON Output
+{
+  "integer": 123,
+  "negative": -456,
+  "floating": 1.23,
+  "exponent": 100000,
+  "negative_float": -3.14
+}
+```
+</CodeGroup>
+
+<Note>
+  Number parsing follows JavaScript's `parseFloat` behavior. The parser validates that the entire value matches the number pattern.
+</Note>
+
+#### Number Formats
+
+Supported number formats:
+
+| Format | Example | Type |
+|--------|---------|------|
+| Integer | `42` | number |
+| Negative | `-42` | number |
+| Float | `3.14` | number |
+| Negative float | `-3.14` | number |
+| Exponent | `1e5` | number |
+| Negative exponent | `1e-5` | number |
+
+### Booleans
+
+Boolean values are case-sensitive:
+
+<CodeGroup>
+```ahocon AHOCON
+a = true
+b = false
+```
+
+```json JSON Output
+{
+  "a": true,
+  "b": false
+}
+```
+</CodeGroup>
+
+<Warning>
+  Only lowercase `true` and `false` are recognized as booleans. `True`, `TRUE`, `False`, and `FALSE` are treated as strings.
+</Warning>
+
+### Null
+
+The `null` value represents the absence of a value:
+
+<CodeGroup>
+```ahocon AHOCON
+a = null
+```
+
+```json JSON Output
+{
+  "a": null
+}
+```
+</CodeGroup>
+
+### Undefined
+
+Unlike JSON, AHOCON supports `undefined`:
+
+<CodeGroup>
+```ahocon AHOCON
+a = undefined
+b = 1
+```
+
+```json JSON Output (JavaScript)
+{
+  "b": 1
+}
+```
+</CodeGroup>
+
+<Info>
+  When serialized to JSON, properties with `undefined` values are omitted since JSON doesn't support `undefined`.
+</Info>
+
+## Complex Types
+
+AHOCON supports objects and arrays with flexible syntax.
+
+### Objects
+
+Objects are key-value pairs enclosed in braces:
+
+<CodeGroup>
+```ahocon AHOCON
+user = {
+  name = John Doe
+  age = 30
+  active = true
+}
+```
+
+```json JSON Output
+{
+  "user": {
+    "name": "John Doe",
+    "age": 30,
+    "active": true
+  }
+}
+```
+</CodeGroup>
+
+#### Optional Braces
+
+At the root level, braces are optional:
+
+<CodeGroup>
+```ahocon AHOCON
+name = John Doe
+age = 30
+```
+
+```json JSON Output
+{
+  "name": "John Doe",
+  "age": 30
+}
+```
+</CodeGroup>
+
+#### Empty Objects
+
+Empty objects are supported:
+
+<CodeGroup>
+```ahocon AHOCON
+config = {}
+```
+
+```json JSON Output
+{
+  "config": {}
+}
+```
+</CodeGroup>
+
+#### Nested Objects
+
+Objects can be nested to any depth:
+
+<CodeGroup>
+```ahocon AHOCON
+server {
+  database {
+    primary {
+      host = localhost
+      port = 5432
+    }
+  }
+}
+```
+
+```json JSON Output
+{
+  "server": {
+    "database": {
+      "primary": {
+        "host": "localhost",
+        "port": 5432
+      }
+    }
+  }
+}
+```
+</CodeGroup>
+
+<Info>
+  See [Grammar Reference](/concepts/grammar#path-notation) for path notation shortcuts like `server.database.primary.host = localhost`.
+</Info>
+
+### Arrays
+
+Arrays are ordered collections enclosed in brackets:
+
+<CodeGroup>
+```ahocon AHOCON
+colors = [
+  red
+  green
+  blue
+]
+```
+
+```json JSON Output
+{
+  "colors": ["red", "green", "blue"]
+}
+```
+</CodeGroup>
+
+#### Mixed Types
+
+Arrays can contain mixed types:
+
+<CodeGroup>
+```ahocon AHOCON
+mixed = [
+  string
+  123
+  true
+  null
+  { key = value }
+  [1, 2, 3]
+]
+```
+
+```json JSON Output
+{
+  "mixed": [
+    "string",
+    123,
+    true,
+    null,
+    { "key": "value" },
+    [1, 2, 3]
+  ]
+}
+```
+</CodeGroup>
+
+#### Empty Arrays
+
+Empty arrays are supported:
+
+<CodeGroup>
+```ahocon AHOCON
+items = []
+```
+
+```json JSON Output
+{
+  "items": []
+}
+```
+</CodeGroup>
+
+#### Array of Objects
+
+Common pattern for configuration:
+
+<CodeGroup>
+```ahocon AHOCON
+users = [
+  {
+    name = Alice
+    role = admin
+  }
+  {
+    name = Bob
+    role = user
+  }
+]
+```
+
+```json JSON Output
+{
+  "users": [
+    { "name": "Alice", "role": "admin" },
+    { "name": "Bob", "role": "user" }
+  ]
+}
+```
+</CodeGroup>
+
+#### Sparse Arrays
+
+Arrays with gaps are supported (filled with `null`):
+
+<CodeGroup>
+```ahocon AHOCON
+items.0 = first
+items.5 = sixth
+```
+
+```json JSON Output
+{
+  "items": ["first", null, null, null, null, "sixth"]
+}
+```
+</CodeGroup>
+
+## Type Detection
+
+AHOCON uses specific rules to determine value types:
+
+### Detection Order
+
+1. **Quoted values** → String
+2. **true/false** → Boolean
+3. **null** → Null
+4. **undefined** → Undefined
+5. **Valid number pattern** → Number
+6. **Everything else** → String
+
+### Examples
+
+<CodeGroup>
+```ahocon AHOCON
+a = 123        # number
+b = "123"      # string
+c = true       # boolean
+d = "true"     # string
+e = null       # null
+f = "null"     # string
+g = undefined  # undefined
+h = hello      # string
+```
+
+```json JSON Output
+{
+  "a": 123,
+  "b": "123",
+  "c": true,
+  "d": "true",
+  "e": null,
+  "f": "null",
+  "h": "hello"
+}
+```
+</CodeGroup>
+
+<Note>
+  Property `g` with `undefined` value is omitted in JSON output.
+</Note>
+
+## Type Conversion
+
+Values are parsed as their detected type without automatic conversion.
+
+### No Implicit Conversion
+
+<CodeGroup>
+```ahocon AHOCON
+# These are different types
+port = 8080      # number
+host = localhost # string
+enabled = true   # boolean
+```
+
+```json JSON Output
+{
+  "port": 8080,
+  "host": "localhost",
+  "enabled": true
+}
+```
+</CodeGroup>
+
+### Forcing Types
+
+Use quotes to force string interpretation:
+
+<CodeGroup>
+```ahocon AHOCON
+version = "1.0"    # string "1.0"
+port = "8080"      # string "8080"
+enabled = "true"   # string "true"
+```
+
+```json JSON Output
+{
+  "version": "1.0",
+  "port": "8080",
+  "enabled": "true"
+}
+```
+</CodeGroup>
+
+## Common Patterns
+
+Here are some common data structure patterns in AHOCON:
+
+### Configuration Object
+
+```ahocon
+app_name = My Application
+version = 1.0.0
+
+server {
+  host = 0.0.0.0
+  port = 8080
+  ssl = false
+}
+
+database {
+  url = postgresql://localhost/mydb
+  pool_size = 20
+  timeout = 30
+}
+
+features = [
+  authentication
+  logging
+  metrics
+]
+```
+
+### User Records
+
+```ahocon
+users = [
+  {
+    id = 1
+    username = alice
+    email = alice@example.com
+    roles = [admin, user]
+    active = true
+  }
+  {
+    id = 2
+    username = bob
+    email = bob@example.com
+    roles = [user]
+    active = true
+  }
+]
+```
+
+### Nested Configuration
+
+```ahocon
+environments {
+  development {
+    debug = true
+    database.url = localhost
+    cache.enabled = false
+  }
+  
+  production {
+    debug = false
+    database.url = prod-server.example.com
+    cache.enabled = true
+    cache.ttl = 3600
+  }
+}
+```
+
+### Mixed Data Types
+
+```ahocon
+metadata {
+  created_at = 2024-01-15
+  version = 2.1.0
+  stable = true
+  downloads = 15234
+  
+  tags = [
+    parser
+    config
+    typescript
+  ]
+  
+  author {
+    name = John Doe
+    email = john@example.com
+  }
+  
+  dependencies = {}
+  optional_field = undefined
+}
+```
+
+## Type Reference Table
+
+| Type | Example | JSON Output | Notes |
+|------|---------|-------------|-------|
+| String (unquoted) | `hello` | `"hello"` | No special chars |
+| String (quoted) | `"hello"` | `"hello"` | Any content |
+| Integer | `42` | `42` | Whole numbers |
+| Float | `3.14` | `3.14` | Decimal numbers |
+| Boolean | `true` | `true` | Lowercase only |
+| Null | `null` | `null` | Represents no value |
+| Undefined | `undefined` | (omitted) | Not in JSON spec |
+| Object | `{a=1}` | `{"a":1}` | Key-value pairs |
+| Array | `[1,2,3]` | `[1,2,3]` | Ordered values |
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Grammar Reference" icon="book" href="/concepts/grammar">
+    Learn about AHOCON grammar rules
+  </Card>
+  <Card title="Syntax Features" icon="code" href="/concepts/syntax">
+    Explore strings, comments, and syntax
+  </Card>
+</CardGroup>

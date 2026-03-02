@@ -1,0 +1,182 @@
+---
+title: 'ParseConfig'
+description: 'Configuration options for customizing HOCON parsing behavior'
+---
+
+## Interface Definition
+
+```typescript
+export interface ParseConfig {
+  functions?: Record<string, AHOCON.CustomFunction | Record<string, AHOCON.CustomFunction>>;
+  preparse?: (root: AHOCON.PickNode<'root'>) => unknown;
+}
+```
+
+The `ParseConfig` interface allows you to customize the behavior of the HOCON parser by providing custom functions and preprocessing hooks.
+
+## Options
+
+<ParamField path="functions" type="Record<string, CustomFunction | Record<string, CustomFunction>>">
+  A registry of custom functions that can be called within your HOCON configuration.
+  
+  **Structure:**
+  - **Flat functions**: `{ functionName: customFunction }`
+  - **Namespaced functions**: `{ namespace: { functionName: customFunction } }`
+  
+  <Note>
+    **Important**: Only the extended parse (`import { parse } from 'ahocon/extended'`) uses this option.
+    The standard parser does not support custom functions.
+  </Note>
+  
+  ### CustomFunction Type
+  
+  ```typescript
+  export type CustomFunction = (params: {
+    args: Array<unknown>;
+    root: AHOCON.PickNode<'root'>;
+    node: AHOCON.PickNode<'function'>;
+    parseNode: (node: AHOCON.Node) => unknown;
+  }) => unknown;
+  ```
+  
+  <ParamField path="params.args" type="Array<unknown>">
+    The evaluated arguments passed to the function call in the HOCON configuration.
+  </ParamField>
+  
+  <ParamField path="params.root" type="AHOCON.PickNode<'root'>">
+    The root AST node of the entire configuration tree.
+  </ParamField>
+  
+  <ParamField path="params.node" type="AHOCON.PickNode<'function'>">
+    The function call AST node itself.
+  </ParamField>
+  
+  <ParamField path="params.parseNode" type="(node: AHOCON.Node) => unknown">
+    A helper function to evaluate/parse an AST node into its JavaScript value.
+  </ParamField>
+</ParamField>
+
+<ParamField path="preparse" type="(root: AHOCON.PickNode<'root'>) => unknown">
+  A callback function that runs before the parser evaluates the AST.
+  
+  This allows you to:
+  - Inspect the raw AST structure
+  - Modify nodes before evaluation
+  - Perform validation or logging
+  - Transform the tree structure
+  
+  **Parameters:**
+  - `root`: The root AST node containing the entire parsed configuration tree
+  
+  **Return value:** The return value is ignored; this is a side-effect function.
+</ParamField>
+
+## Usage Examples
+
+<Tabs>
+  <Tab title="Custom Functions">
+    ```typescript
+    import { parse } from 'ahocon/extended';
+    
+    const hocon = `
+      result = concat("Hello", " ", "World")
+      doubled = math.multiply(21, 2)
+    `;
+    
+    const config = parse(hocon, {
+      functions: {
+        concat: ({ args }) => args.join(''),
+        math: {
+          multiply: ({ args }) => {
+            const [a, b] = args as [number, number];
+            return a * b;
+          }
+        }
+      }
+    });
+    
+    console.log(config.result); // "Hello World"
+    console.log(config.doubled); // 42
+    ```
+  </Tab>
+  
+  <Tab title="Preparse Hook">
+    ```typescript
+    import { parse } from 'ahocon';
+    
+    const hocon = `
+      database {
+        host = "localhost"
+        port = 5432
+      }
+    `;
+    
+    const config = parse(hocon, {
+      preparse: (root) => {
+        // Log the raw AST structure
+        console.log('AST:', JSON.stringify(root, null, 2));
+        
+        // Access the entry node
+        console.log('Entry type:', root.entry.type);
+        
+        // You can inspect or modify the tree here
+        if (root.entry.type === 'object') {
+          console.log('Properties:', root.entry.props.length);
+        }
+      }
+    });
+    ```
+  </Tab>
+  
+  <Tab title="Advanced Custom Function">
+    ```typescript
+    import { parse } from 'ahocon/extended';
+    
+    const hocon = `
+      appName = "myapp"
+      version = "1.0.0"
+      fullName = format("${appName}-v${version}")
+    `;
+    
+    const config = parse(hocon, {
+      functions: {
+        format: ({ args, root, parseNode }) => {
+          const [template] = args as [string];
+          
+          // Access the root configuration
+          const rootValue = parseNode(root.entry);
+          
+          // Perform string interpolation
+          return template.replace(/\${(\w+)}/g, (_, key) => {
+            return rootValue[key] || '';
+          });
+        }
+      }
+    });
+    
+    console.log(config.fullName); // "myapp-v1.0.0"
+    ```
+  </Tab>
+</Tabs>
+
+## Best Practices
+
+<Note>
+  **When to use `functions`:**
+  - Implementing computed values or transformations
+  - Integrating external data sources
+  - Providing utility functions for configuration authors
+  
+  **When to use `preparse`:**
+  - Debugging and logging AST structure
+  - Validating configuration schema
+  - Applying tree transformations before evaluation
+  - Collecting metadata about the configuration
+</Note>
+
+## Related Types
+
+For detailed information about the AST node types used in `preparse` and custom functions, see:
+- [Types and Interfaces](/api/types) - Complete type definitions
+- [CustomFunction type](/api/types#customfunction)
+- [AST Node types](/api/types#node-types)

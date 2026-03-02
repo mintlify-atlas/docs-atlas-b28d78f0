@@ -1,0 +1,447 @@
+---
+title: 'Types & Interfaces'
+description: 'TypeScript type definitions for AHOCON AST nodes and utilities'
+---
+
+## Overview
+
+AHOCON provides comprehensive TypeScript type definitions for working with the Abstract Syntax Tree (AST) and creating custom functions. All types are available under the global `AHOCON` namespace.
+
+## Core Utility Types
+
+### NodeShell
+
+```typescript
+export type NodeShell<T> = T & {
+  range: [start: number, end: number];
+  raw: string;
+};
+```
+
+<ResponseField name="NodeShell" type="type">
+  A wrapper type that adds common properties to all AST nodes.
+  
+  <ParamField path="range" type="[start: number, end: number]" required>
+    The character position range `[start, end]` in the original HOCON string where this node appears.
+  </ParamField>
+  
+  <ParamField path="raw" type="string" required>
+    The raw substring from the original HOCON input that corresponds to this node.
+  </ParamField>
+</ResponseField>
+
+### PickNode
+
+```typescript
+export type PickNode<T extends AHOCON.Node['type']> = Exclude<
+  AHOCON.Node,
+  Exclude<AHOCON.Node, { type: T }>
+>;
+```
+
+<ResponseField name="PickNode" type="utility type">
+  A utility type to extract a specific node type from the union of all possible nodes.
+  
+  **Example:**
+  ```typescript
+  type RootNode = AHOCON.PickNode<'root'>;
+  type ObjectNode = AHOCON.PickNode<'object'>;
+  type ArrayNode = AHOCON.PickNode<'array'>;
+  ```
+</ResponseField>
+
+## Node Types
+
+### Node (Union Type)
+
+```typescript
+export type Node =
+  | AHOCON.NodeShell<{ type: 'root'; ... }>
+  | AHOCON.NodeShell<{ type: 'object'; ... }>
+  | AHOCON.NodeShell<{ type: 'array'; ... }>
+  | AHOCON.NodeShell<{ type: 'string'; ... }>
+  | AHOCON.NodeShell<{ type: 'assignment'; ... }>
+  | AHOCON.NodeShell<{ type: 'function'; ... }>
+  | AHOCON.NodeShell<{ type: 'raw'; ... }>;
+```
+
+The `Node` type is a discriminated union of all possible AST node types.
+
+### Root Node
+
+```typescript
+NodeShell<{
+  type: 'root';
+  entry: AHOCON.PickNode<'array' | 'object'>;
+  parseConfig?: AHOCON.ParseConfig;
+  parent?: AHOCON.Node | null;
+  evaluated?: unknown;
+}>
+```
+
+<ResponseField name="root" type="node">
+  The root node of the entire configuration AST.
+  
+  <ParamField path="type" type="'root'" required>
+    Node type discriminator.
+  </ParamField>
+  
+  <ParamField path="entry" type="PickNode<'array' | 'object'>" required>
+    The top-level configuration structure (either an object or array).
+  </ParamField>
+  
+  <ParamField path="parseConfig" type="ParseConfig">
+    The configuration passed to the `parse()` function.
+  </ParamField>
+  
+  <ParamField path="parent" type="Node | null">
+    Parent node reference (null for root).
+  </ParamField>
+  
+  <ParamField path="evaluated" type="unknown">
+    Cached evaluation result.
+  </ParamField>
+</ResponseField>
+
+### Object Node
+
+```typescript
+NodeShell<{
+  type: 'object';
+  props: Array<{
+    key: AHOCON.KeyNode;
+    value: AHOCON.ValueNode;
+  }>;
+  parent?: AHOCON.Node | null;
+  evaluated?: unknown;
+}>
+```
+
+<ResponseField name="object" type="node">
+  Represents an object/map structure in HOCON.
+  
+  <ParamField path="type" type="'object'" required>
+    Node type discriminator.
+  </ParamField>
+  
+  <ParamField path="props" type="Array<{ key: KeyNode; value: ValueNode }>" required>
+    Array of key-value pairs representing object properties.
+  </ParamField>
+  
+  <ParamField path="parent" type="Node | null">
+    Parent node reference.
+  </ParamField>
+  
+  <ParamField path="evaluated" type="unknown">
+    Cached evaluation result.
+  </ParamField>
+</ResponseField>
+
+### Array Node
+
+```typescript
+NodeShell<{
+  type: 'array';
+  values: Array<AHOCON.ValueNode>;
+  parent?: AHOCON.Node | null;
+  evaluated?: unknown;
+}>
+```
+
+<ResponseField name="array" type="node">
+  Represents an array/list structure in HOCON.
+  
+  <ParamField path="type" type="'array'" required>
+    Node type discriminator.
+  </ParamField>
+  
+  <ParamField path="values" type="Array<ValueNode>" required>
+    Array of value nodes.
+  </ParamField>
+  
+  <ParamField path="parent" type="Node | null">
+    Parent node reference.
+  </ParamField>
+  
+  <ParamField path="evaluated" type="unknown">
+    Cached evaluation result.
+  </ParamField>
+</ResponseField>
+
+### String Node
+
+```typescript
+NodeShell<{
+  type: 'string';
+  value: string;
+  parent?: AHOCON.Node | null;
+}>
+```
+
+<ResponseField name="string" type="node">
+  Represents a string literal value.
+  
+  <ParamField path="type" type="'string'" required>
+    Node type discriminator.
+  </ParamField>
+  
+  <ParamField path="value" type="string" required>
+    The string value.
+  </ParamField>
+  
+  <ParamField path="parent" type="Node | null">
+    Parent node reference.
+  </ParamField>
+</ResponseField>
+
+### Assignment Node
+
+```typescript
+NodeShell<{
+  type: 'assignment';
+  value: string;
+  parent?: AHOCON.Node | null;
+}>
+```
+
+<ResponseField name="assignment" type="node">
+  Represents an assignment expression.
+  
+  <ParamField path="type" type="'assignment'" required>
+    Node type discriminator.
+  </ParamField>
+  
+  <ParamField path="value" type="string" required>
+    The assigned value as a string.
+  </ParamField>
+  
+  <ParamField path="parent" type="Node | null">
+    Parent node reference.
+  </ParamField>
+</ResponseField>
+
+### Function Node
+
+```typescript
+NodeShell<{
+  type: 'function';
+  name: AHOCON.KeyNode;
+  args: Array<AHOCON.ValueNode>;
+  parent?: AHOCON.Node | null;
+  evaluated?: unknown;
+}>
+```
+
+<ResponseField name="function" type="node">
+  Represents a function call expression.
+  
+  <ParamField path="type" type="'function'" required>
+    Node type discriminator.
+  </ParamField>
+  
+  <ParamField path="name" type="KeyNode" required>
+    The function name (may include namespace, e.g., "math.add").
+  </ParamField>
+  
+  <ParamField path="args" type="Array<ValueNode>" required>
+    Array of argument nodes.
+  </ParamField>
+  
+  <ParamField path="parent" type="Node | null">
+    Parent node reference.
+  </ParamField>
+  
+  <ParamField path="evaluated" type="unknown">
+    Cached evaluation result.
+  </ParamField>
+</ResponseField>
+
+### Raw Node
+
+```typescript
+NodeShell<{
+  type: 'raw';
+  value: unknown;
+  parent?: AHOCON.Node | null;
+}>
+```
+
+<ResponseField name="raw" type="node">
+  Represents a raw JavaScript value (numbers, booleans, null, etc.).
+  
+  <ParamField path="type" type="'raw'" required>
+    Node type discriminator.
+  </ParamField>
+  
+  <ParamField path="value" type="unknown" required>
+    The raw JavaScript value.
+  </ParamField>
+  
+  <ParamField path="parent" type="Node | null">
+    Parent node reference.
+  </ParamField>
+</ResponseField>
+
+## Specialized Node Types
+
+### KeyNode
+
+```typescript
+export type KeyNode = NodeShell<{
+  value: string;
+  partials: Array<AHOCON.PickNode<'string' | 'raw'>>;
+  parent?: AHOCON.Node | null;
+}>;
+```
+
+<ResponseField name="KeyNode" type="type">
+  Represents an object key, which may be composed of multiple parts.
+  
+  <ParamField path="value" type="string" required>
+    The complete key as a string.
+  </ParamField>
+  
+  <ParamField path="partials" type="Array<PickNode<'string' | 'raw'>>" required>
+    The individual parts that make up the key (for interpolated keys).
+  </ParamField>
+  
+  <ParamField path="parent" type="Node | null">
+    Parent node reference.
+  </ParamField>
+</ResponseField>
+
+### ValueNode
+
+```typescript
+export type ValueNode = AHOCON.PickNode<'string' | 'array' | 'object' | 'function' | 'raw'>;
+```
+
+<ResponseField name="ValueNode" type="type">
+  Union type representing all possible value types in HOCON (strings, arrays, objects, function calls, and raw values).
+  
+  Used for:
+  - Object property values
+  - Array elements
+  - Function arguments
+</ResponseField>
+
+## CustomFunction
+
+```typescript
+export type CustomFunction = (params: {
+  args: Array<unknown>;
+  root: AHOCON.PickNode<'root'>;
+  node: AHOCON.PickNode<'function'>;
+  parseNode: (node: AHOCON.Node) => unknown;
+}) => unknown;
+```
+
+<ResponseField name="CustomFunction" type="type">
+  The type signature for custom functions that can be registered via `ParseConfig.functions`.
+  
+  <ParamField path="params.args" type="Array<unknown>" required>
+    The evaluated arguments passed to the function.
+  </ParamField>
+  
+  <ParamField path="params.root" type="PickNode<'root'>" required>
+    The root AST node of the configuration.
+  </ParamField>
+  
+  <ParamField path="params.node" type="PickNode<'function'>" required>
+    The function call AST node.
+  </ParamField>
+  
+  <ParamField path="params.parseNode" type="(node: Node) => unknown" required>
+    Helper function to evaluate an AST node.
+  </ParamField>
+  
+  **Returns:** The result of the function call (can be any value).
+</ResponseField>
+
+## Usage Examples
+
+<Tabs>
+  <Tab title="Type Guards">
+    ```typescript
+    import { parse } from 'ahocon';
+    
+    const hocon = '{ name = "test" }';
+    
+    const config = parse(hocon, {
+      preparse: (root) => {
+        // Use type discrimination
+        if (root.entry.type === 'object') {
+          root.entry.props.forEach(prop => {
+            console.log(`Key: ${prop.key.value}`);
+            
+            if (prop.value.type === 'string') {
+              console.log(`Value: ${prop.value.value}`);
+            }
+          });
+        }
+      }
+    });
+    ```
+  </Tab>
+  
+  <Tab title="PickNode Helper">
+    ```typescript
+    function processObject(node: AHOCON.PickNode<'object'>) {
+      // TypeScript knows this is an object node
+      console.log(`Object has ${node.props.length} properties`);
+      
+      node.props.forEach(({ key, value }) => {
+        console.log(`${key.value}: ${value.type}`);
+      });
+    }
+    
+    const config = parse(hocon, {
+      preparse: (root) => {
+        if (root.entry.type === 'object') {
+          processObject(root.entry);
+        }
+      }
+    });
+    ```
+  </Tab>
+  
+  <Tab title="Custom Function with Types">
+    ```typescript
+    import { parse } from 'ahocon/extended';
+    
+    const sum: AHOCON.CustomFunction = ({ args }) => {
+      return args.reduce((acc, val) => {
+        return acc + (typeof val === 'number' ? val : 0);
+      }, 0);
+    };
+    
+    const getValue: AHOCON.CustomFunction = ({ args, root, parseNode }) => {
+      const [path] = args as [string];
+      const rootValue = parseNode(root.entry) as Record<string, unknown>;
+      return rootValue[path];
+    };
+    
+    const hocon = `
+      baseValue = 10
+      total = sum(1, 2, 3, 4)
+      copied = getValue("baseValue")
+    `;
+    
+    const config = parse(hocon, {
+      functions: { sum, getValue }
+    });
+    ```
+  </Tab>
+</Tabs>
+
+<Note>
+  All node types include `range` and `raw` properties from `NodeShell`, which can be useful for:
+  - Error reporting with source locations
+  - Preserving original formatting
+  - Debugging and inspection
+</Note>
+
+## Related Documentation
+
+- [parse() function](/api/parse) - Main parser API
+- [ParseConfig interface](/api/configuration) - Configuration options

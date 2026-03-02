@@ -1,0 +1,75 @@
+---
+title: Installation
+description: Install AHOCON using your preferred package manager
+---
+
+# Installation
+
+AHOCON is available as an npm package and can be installed using any modern JavaScript package manager.
+
+## Package Managers
+
+<CodeGroup>
+
+```bash npm
+npm install ahocon
+```
+
+```bash yarn
+yarn add ahocon
+```
+
+```bash pnpm
+pnpm add ahocon
+```
+
+</CodeGroup>
+
+## Requirements
+
+AHOCON works in any JavaScript environment that supports ES modules:
+
+- **Node.js**: Version 14 or higher recommended
+- **Browsers**: All modern browsers with ES6+ support
+- **Other runtimes**: Deno, Bun, and other JavaScript runtimes (not extensively tested)
+
+<Note>
+  AHOCON is built with TypeScript and includes type definitions out of the box. No additional `@types` package is needed.
+</Note>
+
+## Verify Installation
+
+After installation, verify that AHOCON is correctly installed:
+
+```bash
+node -e "console.log(require('ahocon').parse('test = true'))"
+```
+
+You should see output similar to:
+
+```json
+{ test: true }
+```
+
+## Package Information
+
+- **Package name**: `ahocon`
+- **Registry**: [npm](https://www.npmjs.com/package/ahocon)
+- **Repository**: [GitHub](https://github.com/steve-py96/ahocon)
+- **License**: UNLICENSED
+
+## Module Formats
+
+AHOCON provides multiple module formats:
+
+- **CommonJS**: `index.js` (main entry point)
+- **ES Modules**: `index.mjs`
+- **TypeScript types**: `index.d.ts`
+
+<Tip>
+  Modern bundlers like Vite, webpack, and esbuild will automatically use the appropriate module format for your project.
+</Tip>
+
+## Next Steps
+
+Now that AHOCON is installed, continue to the [Quick Start](/quickstart) guide to parse your first configuration.

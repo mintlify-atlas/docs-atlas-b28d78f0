@@ -1,0 +1,337 @@
+---
+title: Preparse Hooks
+description: Use preparse hooks to manipulate the Abstract Syntax Tree (AST) before AHOCON parses it into an object.
+---
+
+## Overview
+
+Preparse hooks give you the ability to intercept and modify AHOCON's Abstract Syntax Tree (AST) before it gets converted into a JavaScript object. This enables advanced transformations and validations at the parsing level.
+
+## How AHOCON Parsing Works
+
+AHOCON parsing happens in two distinct steps:
+
+<Steps>
+  <Step title="String to AST">
+    The input string is parsed into AST nodes representing the structure of your configuration.
+  </Step>
+  
+  <Step title="AST to Object">
+    The AST nodes are traversed and converted into a JavaScript object.
+  </Step>
+</Steps>
+
+**Preparse hooks execute between these two steps**, giving you full control over the AST before evaluation.
+
+## Preparse Hook Signature
+
+```typescript
+type PreparseHook = (root: AHOCON.PickNode<'root'>) => unknown;
+```
+
+The hook receives the root node of the AST and can modify it in place. The return value is ignored.
+
+### Parameters
+
+- **`root`** - The root node of the parsed AST tree
+
+<Note>
+  Preparse hooks work with both the standard parser (`ahocon`) and the extended parser (`ahocon/extended`).
+</Note>
+
+## Using a Preparse Hook
+
+Pass the `preparse` function in the parse options:
+
+```javascript
+import { parse } from 'ahocon';
+
+const result = parse('example = true', {
+  preparse: (root) => {
+    // Manipulate the AST here
+    console.log('AST before parsing:', root);
+  },
+});
+```
+
+## Use Cases
+
+<Accordion title="AST Inspection and Debugging">
+  Examine the structure of your configuration before it's converted:
+  
+  ```javascript
+  parse(configString, {
+    preparse: (root) => {
+      console.log(JSON.stringify(root, null, 2));
+    },
+  });
+  ```
+</Accordion>
+
+<Accordion title="Validation and Type Checking">
+  Enforce schema rules at the AST level:
+  
+  ```javascript
+  parse(configString, {
+    preparse: (root) => {
+      // Ensure certain keys exist
+      const hasVersion = root.entry.props?.some(
+        prop => prop.key.value === 'version'
+      );
+      
+      if (!hasVersion) {
+        throw Error('Configuration must include a version field');
+      }
+    },
+  });
+  ```
+</Accordion>
+
+<Accordion title="AST Transformation">
+  Modify node values or structure before parsing:
+  
+  ```javascript
+  parse(configString, {
+    preparse: (root) => {
+      // Add default values
+      if (root.entry.type === 'object') {
+        root.entry.props.push({
+          key: { value: 'timestamp', partials: [] },
+          value: { type: 'raw', value: Date.now() },
+        });
+      }
+    },
+  });
+  ```
+</Accordion>
+
+<Accordion title="Conditional Processing">
+  Apply different parsing logic based on AST content:
+  
+  ```javascript
+  parse(configString, {
+    preparse: (root) => {
+      const envProp = root.entry.props?.find(
+        prop => prop.key.value === 'environment'
+      );
+      
+      if (envProp?.value.value === 'production') {
+        // Enable stricter validation for production
+        validateProductionConfig(root);
+      }
+    },
+  });
+  ```
+</Accordion>
+
+## Understanding the AST Structure
+
+The AST consists of typed nodes. Here are the main node types:
+
+### Root Node
+
+```typescript
+{
+  type: 'root',
+  entry: ObjectNode | ArrayNode,
+  range: [start: number, end: number],
+  raw: string
+}
+```
+
+### Object Node
+
+```typescript
+{
+  type: 'object',
+  props: Array<{
+    key: KeyNode,
+    value: ValueNode
+  }>,
+  parent?: Node,
+  range: [start: number, end: number],
+  raw: string
+}
+```
+
+### Array Node
+
+```typescript
+{
+  type: 'array',
+  values: Array<ValueNode>,
+  parent?: Node,
+  range: [start: number, end: number],
+  raw: string
+}
+```
+
+### Value Nodes
+
+Value nodes can be:
+- `string` - String literals
+- `raw` - Numbers, booleans, null
+- `object` - Nested objects
+- `array` - Nested arrays
+- `function` - Function calls (extended parser only)
+
+## Example: Adding Metadata
+
+Here's a practical example that adds parsing metadata to the configuration:
+
+```javascript
+import { parse } from 'ahocon';
+
+const configString = `
+  app {
+    name = "MyApp"
+    version = "1.0.0"
+  }
+`;
+
+const result = parse(configString, {
+  preparse: (root) => {
+    if (root.entry.type === 'object') {
+      // Add metadata about when this was parsed
+      root.entry.props.push({
+        key: {
+          value: '_metadata',
+          partials: [],
+          range: [0, 0],
+          raw: '_metadata',
+        },
+        value: {
+          type: 'object',
+          props: [
+            {
+              key: {
+                value: 'parsedAt',
+                partials: [],
+                range: [0, 0],
+                raw: 'parsedAt',
+              },
+              value: {
+                type: 'raw',
+                value: new Date().toISOString(),
+                range: [0, 0],
+                raw: '',
+              },
+            },
+          ],
+          range: [0, 0],
+          raw: '',
+        },
+      });
+    }
+  },
+});
+
+console.log(result);
+// {
+//   app: { name: 'MyApp', version: '1.0.0' },
+//   _metadata: { parsedAt: '2026-03-02T...' }
+// }
+```
+
+## Example: Enforcing Configuration Schema
+
+```javascript
+function validateSchema(root) {
+  if (root.entry.type !== 'object') {
+    throw Error('Root must be an object');
+  }
+
+  const requiredKeys = ['name', 'version'];
+  const configKeys = root.entry.props.map(prop => prop.key.value);
+
+  requiredKeys.forEach(key => {
+    if (!configKeys.includes(key)) {
+      throw Error(`Missing required field: ${key}`);
+    }
+  });
+}
+
+parse(configString, {
+  preparse: (root) => {
+    validateSchema(root);
+  },
+});
+```
+
+## Combining with Custom Functions
+
+Preparse hooks work seamlessly with custom functions:
+
+```javascript
+import { parse } from 'ahocon/extended';
+import * as math from 'ahocon/funcs/math';
+
+parse(configString, {
+  functions: { math },
+  preparse: (root) => {
+    // Validate AST before function execution
+    console.log('AST structure:', root);
+  },
+});
+```
+
+<Note>
+  The preparse hook runs **before** custom functions are evaluated. This means you see the raw function nodes in the AST, not their evaluated results.
+</Note>
+
+## Important Considerations
+
+<Warning>
+  **Mutations are expected** - Preparse hooks should modify the AST in place. While mutations are generally avoided in modern JavaScript, they're intentional here for memory efficiency and simplicity.
+</Warning>
+
+<Warning>
+  **Be careful with node structure** - When adding or modifying nodes, ensure they match the expected type structure. Invalid nodes will cause parsing errors.
+</Warning>
+
+<Warning>
+  **Performance matters** - Preparse hooks run on every parse call. Keep operations fast, especially for large configurations.
+</Warning>
+
+## Advanced: Recursive AST Traversal
+
+For complex transformations, you may need to traverse the entire tree:
+
+```javascript
+function traverseAST(node, callback) {
+  callback(node);
+
+  if (node.type === 'object') {
+    node.props.forEach(prop => {
+      traverseAST(prop.value, callback);
+    });
+  } else if (node.type === 'array') {
+    node.values.forEach(value => {
+      traverseAST(value, callback);
+    });
+  } else if (node.type === 'function') {
+    node.args.forEach(arg => {
+      traverseAST(arg, callback);
+    });
+  } else if (node.type === 'root') {
+    traverseAST(node.entry, callback);
+  }
+}
+
+parse(configString, {
+  preparse: (root) => {
+    traverseAST(root, (node) => {
+      // Do something with every node
+      if (node.type === 'string' && node.value.includes('SECRET')) {
+        throw Error('Secrets not allowed in config!');
+      }
+    });
+  },
+});
+```
+
+## Next Steps
+
+- Learn about [Custom Functions](/advanced/custom-functions) for runtime logic
+- Explore [Built-in Functions](/advanced/built-in-functions) for examples
+- See the [AHOCON type definitions](https://github.com/steve-py96/ahocon/blob/main/src/_global.d.ts) for complete AST node types

@@ -1,0 +1,135 @@
+---
+title: 'parse()'
+description: 'Main parser function to convert HOCON strings into JavaScript objects'
+---
+
+## Function Signature
+
+```typescript
+const parse: <T extends {} = {}>(content: string, config?: AHOCON.ParseConfig) => T
+```
+
+The `parse` function is the main entry point for parsing HOCON configuration strings into JavaScript objects.
+
+## Generic Type Parameter
+
+<ParamField path="T" type="object" default="{}">
+  The expected return type of the parsed configuration. Extends `{}` to ensure only object types are allowed.
+  
+  Use this to provide type safety for your configuration:
+  
+  ```typescript
+  interface MyConfig {
+    host: string;
+    port: number;
+  }
+  
+  const config = parse<MyConfig>(hoconString);
+  // config is now typed as MyConfig
+  ```
+</ParamField>
+
+## Parameters
+
+<ParamField path="content" type="string" required>
+  The HOCON configuration string to parse.
+  
+  If the content is empty or contains only whitespace, the function returns an empty object.
+</ParamField>
+
+<ParamField path="config" type="AHOCON.ParseConfig">
+  Optional configuration object to customize the parsing behavior.
+  
+  See the [Configuration](/api/configuration) page for details on available options.
+</ParamField>
+
+## Return Value
+
+<ResponseField name="result" type="T">
+  Returns the parsed configuration as type `T`. If no generic type is provided, returns a plain object.
+  
+  If the input `content` is empty or whitespace-only, returns an empty object `{}`.
+</ResponseField>
+
+## Usage Examples
+
+<Tabs>
+  <Tab title="Basic Usage">
+    ```typescript
+    import { parse } from 'ahocon';
+    
+    const hocon = `
+      app {
+        name = "My Application"
+        port = 8080
+      }
+    `;
+    
+    const config = parse(hocon);
+    console.log(config);
+    // { app: { name: "My Application", port: 8080 } }
+    ```
+  </Tab>
+  
+  <Tab title="With Type Safety">
+    ```typescript
+    import { parse } from 'ahocon';
+    
+    interface AppConfig {
+      app: {
+        name: string;
+        port: number;
+        debug?: boolean;
+      };
+    }
+    
+    const hocon = `
+      app {
+        name = "My Application"
+        port = 8080
+        debug = true
+      }
+    `;
+    
+    const config = parse<AppConfig>(hocon);
+    // TypeScript knows the structure of config
+    console.log(config.app.name); // Type-safe access
+    ```
+  </Tab>
+  
+  <Tab title="With Configuration">
+    ```typescript
+    import { parse } from 'ahocon';
+    
+    const hocon = `
+      app {
+        name = "My Application"
+      }
+    `;
+    
+    const config = parse(hocon, {
+      preparse: (root) => {
+        console.log('AST root:', root);
+      }
+    });
+    ```
+  </Tab>
+</Tabs>
+
+<Note>
+  The `parse` function performs two main steps:
+  1. Parses the input string into an Abstract Syntax Tree (AST)
+  2. Evaluates the AST to produce the final JavaScript object
+</Note>
+
+## Empty Input Handling
+
+```typescript
+const empty1 = parse('');
+console.log(empty1); // {}
+
+const empty2 = parse('   \n  ');
+console.log(empty2); // {}
+```
+
+When the input is empty or contains only whitespace, `parse` returns an empty object without processing.
